@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "useDefineForClassFields": true,
+    "isolatedModules": true,
+    "lib": [
+      "ESNext",
+      "dom",
+      "WebWorker"
+    ],
+    "declaration": true,
+    "declarationDir": "./dist",
+    "module": "ES2020",
+    "moduleResolution": "Node",
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "pretty": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "baseUrl": "src",
+    "paths": {
+      "src/*": [
+        "*"
+      ],
+      "kit": [
+        "components/kit"
+      ],
+      "common/*": [
+        "../common/*"
+      ],
+      "logger": [
+        "../common/lib/logger.ts"
+      ]
+    },
+    // support for for..of loops over generators
+    "downlevelIteration": true,
+    "importHelpers": true,
+    "target": "ES2020",
+    "noEmit": true
+    // "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src",
+    "src/modules.d.ts"
+  ],
+}
