@@ -2,6 +2,7 @@ export interface Module {
     type: 'stylesheet' | 'modulepreload' | 'module';
     href: string;
     comment?: string;
+    isEntry?: boolean;
 }
 
 export function createHtmlTag({ type, href, comment }: Module) {

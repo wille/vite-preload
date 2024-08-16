@@ -183,11 +183,6 @@ function getChunks(
 
         const chunks = collectChunksFromManifest(manifest, chunkId);
 
-        if (!includeEntrypoint) {
-            chunks.delete('index.html');
-            // TODO properly include <script module>
-        }
-
         const assets = new Map<string, Module>();
 
         for (const chunk of chunks.values()) {
@@ -197,6 +192,7 @@ function getChunks(
                     type: 'stylesheet',
                     href: cssFile,
                     comment: `Stylesheed imported by ${moduleId}`,
+                    isEntry: chunk.isEntry,
                 });
             }
         }
@@ -213,6 +209,7 @@ function getChunks(
                 type: 'modulepreload',
                 href: chunk.file,
                 comment: `Chunk imported by ${moduleId}`,
+                isEntry: chunk.isEntry,
             });
         }
 
