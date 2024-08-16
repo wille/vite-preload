@@ -12,10 +12,10 @@ export function createHtmlTag({ type, href, comment }: Module) {
             tag += `<link rel=stylesheet crossorigin href="/${href}" nonce="%NONCE%" />`;
             break;
         case 'modulepreload':
-            tag += `<link rel="modulepreload" href="/${href}" nonce="%NONCE%" />`;
+            tag += `<link rel="modulepreload" crossorigin href="/${href}" nonce="%NONCE%" />`;
             break;
         case 'module':
-            tag += `<script type="module" src="/${href}" nonce="%NONCE%"></script>`;
+            tag += `<script type="module" src="/${href}" crossorigin nonce="%NONCE%"></script>`;
             break;
         default:
             return undefined;
@@ -27,9 +27,9 @@ export function createHtmlTag({ type, href, comment }: Module) {
 export function createLinkHeader({ type, href, comment }: Module) {
     switch (type) {
         case 'modulepreload':
-            return `</${href}>; rel=modulepreload`;
+            return `</${href}>; rel=modulepreload; crossorigin`;
         case 'stylesheet':
-            return `</${href}>; as=style; rel=preload`;
+            return `</${href}>; as=style; rel=preload; crossorigin`;
         default:
             return undefined;
     }
