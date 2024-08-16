@@ -27,9 +27,9 @@ export function createHtmlTag({ type, href, comment }: Module) {
 export function createLinkHeader({ type, href, comment }: Module) {
     switch (type) {
         case 'modulepreload':
-            return `</${href}>; rel="modulepreload"`;
+            return `</${href}>; rel=modulepreload`;
         case 'stylesheet':
-            return `</${href}>; rel="stylesheet"`;
+            return `</${href}>; as=style; rel=preload`;
         default:
             return undefined;
     }
