@@ -10,7 +10,7 @@ export function createHtmlTag({ type, href, comment }: Module) {
 
     switch (type) {
         case 'stylesheet':
-            tag += `<link rel=stylesheet crossorigin href="/${href}" nonce="%NONCE%" />`;
+            tag += `<link rel="stylesheet" crossorigin href="/${href}" nonce="%NONCE%" />`;
             break;
         case 'modulepreload':
             tag += `<link rel="modulepreload" crossorigin href="/${href}" nonce="%NONCE%" />`;

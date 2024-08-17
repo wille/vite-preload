@@ -24,7 +24,18 @@ You can see that the async chunks are loaded directly and instantly available on
 > [!CAUTION]
 > This library is experimental and not guaranteed to work in your custom setup. 
 
-## Example showing where this library goes in your application
+
+## Install
+
+```
+$ npm install vite-preload
+```
+
+***
+
+### See [./playground](./playground/) for a basic setup with preloading
+
+## Psuedo example highlighting the important parts
 
 ### `vite.config.ts`
 
@@ -99,3 +110,15 @@ function render(req, res) {
 
 > [!NOTE]
 > In a development environment you will still have some Flash Of Unstyled Content
+
+## Further optimizations
+
+If your app knows what pages or components that should be preloaded, like the next obvious path the user will make in your user flow, it's recommended to lazy load them with something like `lazyWithPreload`.
+
+Even if you would use a `import()` call to preload the chunk, React will still suspend 
+```tsx
+import lazyWithPreload from 'react-lazy-with-preload';
+
+const Card = lazyWithPreload(() => import('./Card'));
+Card.preload();
+```
