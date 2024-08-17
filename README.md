@@ -12,6 +12,15 @@ This is a plugin that will collect what modules are rendered on the server and h
 
 Read more: [Backend Integration](https://vitejs.dev/guide/backend-integration.html) [Server Side Rendering](https://vitejs.dev/guide/ssr.html)
 
+## Without preloading
+
+You can see the async chunks being loaded after the JS started executing (indicated by the red line)
+![Before](./doc/before.png)
+
+## With preloading
+You can see that the async chunks are loaded directly and instantly available once the JS starts executing
+![After](./doc/after.png)
+
 > [!CAUTION]
 > This library is experimental and not guaranteed to work in your custom setup. 
 
