@@ -1,6 +1,6 @@
 # vite-preload
 
-This plugin will significantly speed up your server rendered vite application by preloading async modules as early as possible and avoid Flash Of Unstyled Content (FOUC) by including stylesheets from async modules in the initial HTML.
+This plugin will significantly speed up your server rendered vite application by preloading async modules as early as possible and it will avoid Flash Of Unstyled Content (FOUC) by including stylesheets from async modules in the initial HTML.
 
 ## Explainer
 
@@ -8,9 +8,11 @@ Vite supports `React.lazy()` just fine but any lazy imported modules and its CSS
 
 It's a common pattern to have each page/route in your application lazy loaded especially if you are migrating to Vite from something else like webpack with loadable-components.
 
-This is a plugin that will collect what modules are rendered on the server and help you inject `<link>` tags and `Link` preload headers for early hints.
+This plugin will collect which modules are rendered on the server and help you inject `<link>` tags and `Link` preload headers for early hints.
 
-Read more: [Backend Integration](https://vitejs.dev/guide/backend-integration.html) [Server Side Rendering](https://vitejs.dev/guide/ssr.html)
+Read more:
+- [Backend Integration](https://vitejs.dev/guide/backend-integration.html)
+- [Server Side Rendering](https://vitejs.dev/guide/ssr.html)
 
 ## Without preloading
 
