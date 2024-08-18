@@ -1,6 +1,6 @@
 {
   "name": "vite-preload",
-  "version": "0.0.0-1",
+  "version": "0.0.1",
   "description": "Preload lazy loaded CSS and Modules when Server Side Rendering a Vite app with React",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
