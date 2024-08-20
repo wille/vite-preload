@@ -10,7 +10,7 @@ import {
 import React from 'react';
 import debug from 'debug';
 import { ModuleCollectorContext } from './__internal';
- 
+
 const log = debug('vite-preload');
 
 interface Chunk {
@@ -43,7 +43,6 @@ interface ModuleCollectorOptions {
 
     viteDevServer?: ViteDevServer;
 }
-
 
 export default class ChunkCollector {
     /**
@@ -131,27 +130,12 @@ function collectModules(
     preloads = new Map<string, Preload>()
 ) {
     if (viteDevServer) {
-        return new Map();
-        let m: ModuleNode;
-
-        const urls = {};
-
         const i1 = viteDevServer.moduleGraph.idToModuleMap.get(moduleId);
         const i2 = viteDevServer.moduleGraph.urlToModuleMap.get(moduleId);
 
         console.log('i1', i1);
         console.log('i2', i2);
-
-        // const first = await vite.moduleGraph.getModuleByUrl(moduleId);
-        // console.log('first', first);
-        // await recursive(urls, first);
-        // console.log('id', urls);
-
-        const tags = [];
-        // Object.values(urls).forEach(v => {
-        //   tags.push(getTag(v));
-        // });
-        return [];
+        return new Map();
     } else {
         if (!manifest) {
             throw new Error(
@@ -172,7 +156,7 @@ function collectModules(
             if (preloads.has(chunk.file)) {
                 continue;
             }
-            
+
             const isPrimaryModule = chunk.src === entrypoint;
             preloads.set(chunk.file, {
                 // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
@@ -181,7 +165,7 @@ function collectModules(
                 comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
                 isEntry: chunk.isEntry,
             });
-           
+
             for (const cssFile of chunk.css || []) {
                 // TODO In what order do we place CSS chunks in the DOM to avoid CSS ordering issues?
                 if (preloads.has(cssFile)) continue;
