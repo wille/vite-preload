@@ -44,7 +44,7 @@ export function createHtmlTag({ rel, href, comment }: Preload) {
             if (!linkType) {
                 return null;
             }
-            tag += `<link rel="preload" href="${href}" as="${linkType.as}" type="${linkType.type}" />`;
+            tag += `<link rel="preload" href="/${href}" as="${linkType.as}" type="${linkType.type}"${linkType.as === 'font' ? ' crossorigin' : ''} />`;
             break;
         default:
             return null;
@@ -53,10 +53,16 @@ export function createHtmlTag({ rel, href, comment }: Preload) {
     return `${tag}\n`;
 }
 
+/**
+ * Create a combined Link header separated by ,
+ */
 export function createLinkHeader(modules: Preload[]) {
     return modules.map(createSingleLinkHeader).filter(Boolean).join(', ');
 }
 
+/**
+ * Creates a single Link header
+ */
 export function createSingleLinkHeader({ rel, href }: Preload) {
     switch (rel) {
         case 'module':
@@ -69,7 +75,7 @@ export function createSingleLinkHeader({ rel, href }: Preload) {
             if (!linkType) {
                 return null;
             }
-            return `</${href}>; rel=preload; as=${linkType.as}; type=${linkType.type}`;
+            return `</${href}>; rel=preload; as=${linkType.as}; type=${linkType.type}${linkType.as === 'font' ? '; crossorigin' : ''}`;
         default:
             return null;
     }
@@ -77,19 +83,24 @@ export function createSingleLinkHeader({ rel, href }: Preload) {
 
 function linkPriority(module: Preload) {
     switch (module.rel) {
+        // Stylesheets have the 'Highest' priority in Chrome
         case 'stylesheet':
             return 3;
+        // <script> and <link rel=modulepreload> have the 'High' priority
         case 'module':
             return 2;
         case 'modulepreload':
             return 1;
+        // Images are low
+        case 'preload':
+            // TODO Font is `High`
         default:
             return -1;
     } 
 }
 
-export function sortPreloadModules(modules: Preload[]) {
+export function sortPreloads(modules: Preload[]) {
     return modules.toSorted((a, b) => {
-        return linkPriority(a) - linkPriority(b);
+        return linkPriority(b) - linkPriority(a);
     });
 }
