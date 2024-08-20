@@ -97,10 +97,10 @@ app.use('*', async (req, res) => {
 
     if (!DISABLE_PRELOADING) {
       console.log('Modules used', modules);
-      res.append('link', modules.map(createLinkHeader));
+      res.append('link', collector.getLinkHeader());
     }
 
-    const tags = DISABLE_PRELOADING ? '' : modules.map(createHtmlTag);
+    const tags = DISABLE_PRELOADING ? '' : collector.getTags(true);
 
     res.write(template
       .replace('</head>', `${tags}\n</head>`)

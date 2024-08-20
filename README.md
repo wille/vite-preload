@@ -110,8 +110,9 @@ function render(req, res) {
 }
 ```
 
-> [!NOTE]
-> In a development environment you will still have some Flash Of Unstyled Content
+> [!WARN]
+> There is CURRENTLY no support for preloading JS in the development environment, while not as important as CSS, not preloading CSS
+> will still give you a unpleasant experience with Flash Of Unstyled Content in the development environment
 
 ## Further optimizations
 

@@ -6,5 +6,18 @@ import preloadPlugin from '../dist/plugin';
 export default defineConfig({
   plugins: [react(), preloadPlugin({
     __internal_importHelperModuleName: '../../src/__internal'
-  })]
+  })],
+  build: {
+    manifest: true,
+    ssrManifest: false,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('react')) {
+            return 'vendor-react';
+          }
+        }
+      }
+    }
+  }
 })
