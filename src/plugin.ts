@@ -48,28 +48,32 @@ export default function preloadPlugin({
 
             const foundLazyImports = new Set<string>();
 
-            const ast = parse(code, {
-                sourceType: 'module',
-                plugins: ['jsx', 'typescript'],
-            });
+            let ast;
 
-            // Find React.lazy imported modules
-            traverse(ast, {
-                Import(path) {
-                    if (!path.parent['arguments']) {
-                        return;
-                    }
+            // Find dynamic imports
+            if (code.includes(' import(')) {
+                ast = parse(code, {
+                    sourceType: 'module',
+                    plugins: ['jsx', 'typescript'],
+                });
 
-                    const importArgument = path.parent['arguments'][0];
-
-                    if (importArgument) {
-                        // Dynamic import of a dynamic module is not supported
-                        if (importArgument.type === 'StringLiteral') {
-                            foundLazyImports.add(importArgument.value);
+                traverse(ast, {
+                    Import(path) {
+                        if (!path.parent['arguments']) {
+                            return;
                         }
-                    }
-                },
-            });
+
+                        const importArgument = path.parent['arguments'][0];
+
+                        if (importArgument) {
+                            // Dynamic import of a dynamic module is not supported
+                            if (importArgument.type === 'StringLiteral') {
+                                foundLazyImports.add(importArgument.value);
+                            }
+                        }
+                    },
+                });
+            }
 
             for (const importString of foundLazyImports) {
                 const relative = path.resolve(path.dirname(id), importString);
@@ -88,6 +92,11 @@ export default function preloadPlugin({
 
             if (lazyImportedModules.has(id)) {
                 let injected = false;
+
+                ast ||= parse(code, {
+                    sourceType: 'module',
+                    plugins: ['jsx', 'typescript'],
+                });
 
                 traverse(ast, {
                     ExportDefaultDeclaration(path) {
