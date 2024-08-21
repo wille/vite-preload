@@ -1,10 +1,12 @@
+[![NPM package](https://img.shields.io/npm/v/vite-preload.svg?style=flat-square)](https://www.npmjs.com/package/vite-preload)
+
 # vite-preload
 
 This plugin will significantly speed up your server rendered vite application by preloading async modules as early as possible and it will avoid Flash Of Unstyled Content (FOUC) by including stylesheets from async modules in the initial HTML.
 
 ## Explainer
 
-Vite supports `React.lazy()` just fine but any lazy imported modules and its CSS imports will not be injected into html or DOM until the entrypoint module has imported them.
+Vite supports `React.lazy()` and dynamic imports just fine but any lazy imported modules and its CSS imports will not be injected into html or DOM until the entrypoint module has imported them.
 
 It's a common pattern to have each page/route in your application lazy loaded especially if you are migrating to Vite from something else like webpack with loadable-components.
 
@@ -111,10 +113,11 @@ function render(req, res) {
 ```
 
 > [!WARN]
-> There is CURRENTLY no support for preloading JS in the development environment, while not as important as CSS, not preloading CSS
-> will still give you a unpleasant experience with Flash Of Unstyled Content in the development environment
+> There is CURRENTLY no support for CSS in the development environment because Vite handles CSS as inline style tags so you will still experience some Flash Of Unstyled Content .
 
 ## Further optimizations
+
+### Preloading `React.lazy`
 
 If your app knows what pages or components that should be preloaded, like the next obvious path the user will make in your user flow, it's recommended to lazy load them with something like `lazyWithPreload`.
 
@@ -125,3 +128,7 @@ import lazyWithPreload from 'react-lazy-with-preload';
 const Card = lazyWithPreload(() => import('./Card'));
 Card.preload();
 ```
+
+### react-router Lazy Routes
+
+See https://reactrouter.com/en/main/guides/ssr#lazy-routes

@@ -18,3 +18,5 @@ jobs:
         run: npm test
       - name: Format
         run: npx prettier --check ./src
+      - name: Build
+        run: npm run build
