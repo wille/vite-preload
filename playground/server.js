@@ -1,11 +1,8 @@
 import fs from 'node:fs/promises';
 import express from 'express';
 import { Transform, Writable } from 'node:stream';
-import {
-    ChunkCollector,
-    createHtmlTag,
-    createLinkHeader,
-} from '../dist/index.js';
+
+import createChunkCollector from '../dist/collector.js';
 
 // Constants
 const isProduction = process.env.NODE_ENV === 'production';
@@ -93,10 +90,10 @@ app.use('*', async (req, res) => {
         //     console.error(error)
         //   }
         // })
-        const collector = new ChunkCollector({
+        const collector = createChunkCollector({
             manifest,
-            viteDevServer: vite,
-            entrypoint: isProduction ? 'index.html' : '/src/entry-client.tsx',
+            preloadAssets: true,
+            preloadFonts: true,
         });
 
         const html = await renderStream(render, collector);
@@ -107,10 +104,10 @@ app.use('*', async (req, res) => {
 
         if (!DISABLE_PRELOADING) {
             console.log('Modules used', modules);
-            res.append('link', collector.getLinkHeader());
+            res.append('link', collector.getLinkHeaders());
         }
 
-        const tags = DISABLE_PRELOADING ? '' : collector.getTags(true);
+        const tags = DISABLE_PRELOADING ? '' : collector.getTags(false);
 
         res.write(
             template

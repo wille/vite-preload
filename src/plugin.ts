@@ -1,9 +1,16 @@
 import { parse } from '@babel/parser';
-import traverse from '@babel/traverse';
-import generate from '@babel/generator';
+import _traverse from '@babel/traverse';
+import _generate from '@babel/generator';
 import * as t from '@babel/types';
 import path from 'node:path';
 import { Plugin } from 'vite';
+
+function importDefault<T = any>(module: T): T {
+    return module['default'] || module;
+}
+
+const traverse = importDefault(_traverse);
+const generate = importDefault(_generate);
 
 interface PluginOptions {
     include?: RegExp;
@@ -28,8 +35,8 @@ export default function preloadPlugin({
         name: 'vite-preload',
 
         apply(config, { command }) {
-            // Enable on SSR builds (--ssr) and dev servers
-            return Boolean(config.build?.ssr) || command === 'serve';
+            // Enable on SSR builds (--ssr)
+            return Boolean(config.build?.ssr)
         },
 
         async transform(code, id) {
@@ -44,7 +51,7 @@ export default function preloadPlugin({
                 });
 
                 // Find React.lazy imported modules
-                traverse.default(ast, {
+                traverse(ast, {
                     CallExpression: (p) => {
                         if (isLazyExpression(p)) {
                             const argument = p.node.arguments[0];
@@ -90,7 +97,7 @@ export default function preloadPlugin({
 
                 let injected = false;
 
-                traverse.default(ast, {
+                traverse(ast, {
                     ExportDefaultDeclaration(path) {
                         const declaration = path.node.declaration;
 
@@ -125,7 +132,7 @@ export default function preloadPlugin({
                 if (injected) {
                     this.info('Injected __collectModule in React component');
                     count++;
-                    const output = generate.default(ast, {}, code);
+                    const output = generate(ast, {}, code);
                     injectedModules.add(id);
                     return {
                         code: output.code,
@@ -169,7 +176,7 @@ function injectHook(path, arg) {
 function injectImport(ast, importHelper) {
     let alreadyImported = false;
 
-    traverse.default(ast, {
+    traverse(ast, {
         ImportDeclaration(path) {
             if (path.node.source.value === importHelper) {
                 alreadyImported = true;

@@ -1,32 +1,18 @@
-import path from 'node:path';
-
-import mime from 'mime';
-
 export interface Preload {
     rel: 'stylesheet' | 'modulepreload' | 'module' | 'preload';
     href: string;
+
+    // preload as
+    as?: string;
+
+    // mime type for link preload
+    type?: string;
+
     comment?: string;
     isEntry?: boolean;
 }
 
-function getLinkType(file: string) {
-    const mimeType = mime.getType(file);
-    if (!mimeType) {
-        return null;
-    }
-
-    const as = mimeType.split('/')[0];
-
-    switch (as) {
-        case 'font':
-        case 'image':
-            return { as, type: mimeType };
-        default:
-            return null;
-    }
-}
-
-export function createHtmlTag({ rel, href, comment }: Preload) {
+export function createHtmlTag({ rel, href, as, type, comment }: Preload) {
     let tag = comment ? `<!-- ${comment} -->\n` : '';
 
     switch (rel) {
@@ -40,11 +26,8 @@ export function createHtmlTag({ rel, href, comment }: Preload) {
             tag += `<script type="module" src="/${href}" crossorigin nonce="%NONCE%"></script>`;
             break;
         case 'preload':
-            const linkType = getLinkType(href);
-            if (!linkType) {
-                return null;
-            }
-            tag += `<link rel="preload" href="/${href}" as="${linkType.as}" type="${linkType.type}"${linkType.as === 'font' ? ' crossorigin' : ''} />`;
+            const crossorigin = as === 'font' || as === 'fetch';
+            tag += `<link rel="preload" href="/${href}" as="${as}" type="${type}"${crossorigin ? ' crossorigin' : ''} />`;
             break;
         default:
             return null;
@@ -63,7 +46,7 @@ export function createLinkHeader(modules: Preload[]) {
 /**
  * Creates a single Link header
  */
-export function createSingleLinkHeader({ rel, href }: Preload) {
+export function createSingleLinkHeader({ rel, href, as, type }: Preload) {
     switch (rel) {
         case 'module':
         case 'modulepreload':
@@ -71,11 +54,8 @@ export function createSingleLinkHeader({ rel, href }: Preload) {
         case 'stylesheet':
             return `</${href}>; rel=preload; as=style; crossorigin`;
         case 'preload':
-            const linkType = getLinkType(href);
-            if (!linkType) {
-                return null;
-            }
-            return `</${href}>; rel=preload; as=${linkType.as}; type=${linkType.type}${linkType.as === 'font' ? '; crossorigin' : ''}`;
+            const crossorigin = as === 'font' || as === 'fetch';
+            return `</${href}>; rel=preload; as=${as}; type=${type}${crossorigin ? '; crossorigin' : ''}`;
         default:
             return null;
     }
@@ -85,15 +65,17 @@ function linkPriority(module: Preload) {
     switch (module.rel) {
         // Stylesheets have the 'Highest' priority in Chrome
         case 'stylesheet':
-            return 3;
+            return 4;
         // <script> and <link rel=modulepreload> have the 'High' priority
         case 'module':
-            return 2;
+            return 3;
         case 'modulepreload':
-            return 1;
-        // Images are low
+            return 2;
         case 'preload':
-            // TODO Font is `High`
+            if (module.as === 'font') {
+                return 1;
+            }
+            return 0;
         default:
             return -1;
     } 

@@ -1,15 +1,13 @@
-import fs from 'node:fs/promises';
-import fs1 from 'node:fs';
-import type { ModuleGraph, ModuleNode, ViteDevServer } from 'vite';
+import fs from 'node:fs';
 import {
     createHtmlTag,
     createLinkHeader,
+    createSingleLinkHeader,
     Preload,
     sortPreloads,
 } from './utils';
-import React from 'react';
+import mime from 'mime';
 import debug from 'debug';
-import { ModuleCollectorContext } from './__internal';
 
 const log = debug('vite-preload');
 
@@ -26,61 +24,29 @@ interface ManifestChunk {
 
 type Manifest = Record<string, ManifestChunk>;
 
-interface ModuleCollectorOptions {
-    /**
-     * The manifest.json, NOT ssr-manifest.json as it does not include dynamic imports!
-     *
-     * Optional, not used in dev
-     */
-    manifest?: Manifest;
-
-    entrypoint: string;
-
-    /**
-     * Include statically imported static assets such as images, svgs
-     */
-    includeStaticAssets?: boolean;
-
-    /**
-     * Include fonts
-     */
-    includeFonts?: boolean;
-
-    viteDevServer?: ViteDevServer;
-}
-
-export default class ChunkCollector {
+export class ChunkCollector {
     /**
      * Detected module IDs
      */
     modulesIds = new Set<string>();
-
     modules = new Map<string, Preload>();
 
-    constructor(private options: ModuleCollectorOptions) {
+    preloadFonts = true;
+    preloadAssets = false;
+
+    constructor(
+        public manifest: Manifest,
+        public entry: string
+    ) {
         this.__context_collectModuleId =
             this.__context_collectModuleId.bind(this);
         this.getSortedModules = this.getSortedModules.bind(this);
         this.getTags = this.getTags.bind(this);
         this.getLinkHeader = this.getLinkHeader.bind(this);
+        this.getLinkHeaders = this.getLinkHeaders.bind(this);
 
-        if (options.viteDevServer) {
-            // Vite client runtime
-            this.modules.set('@vite/client', {
-                rel: 'module',
-                // TODO normalize leading slash
-                href: '@vite/client',
-                isEntry: true,
-            });
-        }
-
-        if (options.manifest) {
-            // Manifest is not available in dev so we need to check the dev variant of that and check that as well
-            // to not bring any surprise in prod builds
-            validateEntry(this.options.entrypoint, options.manifest);
-        }
-
-        collectModules(this.options.entrypoint, this.options, this.modules);
+        // Load the entry modules
+        collectModules(entry, this, this.modules);
     }
 
     /**
@@ -88,23 +54,12 @@ export default class ChunkCollector {
      */
     __context_collectModuleId(moduleId: string) {
         this.modulesIds.add(moduleId);
-        collectModules(moduleId, this.options, this.modules);
+        collectModules(moduleId, this, this.modules);
     }
 
     getSortedModules() {
-        return sortPreloads(
-            Array.from(this.modules.values()).filter((module) => {
-                if (module.rel === 'preload') {
-                    if (module.href.match(/\.(woff2?|ttf)$/)) {
-                        return this.options.includeFonts;
-                    }
-
-                    return this.options.includeStaticAssets;
-                }
-
-                return true;
-            })
-        );
+        const modules = Array.from(this.modules.values());
+        return sortPreloads(modules);
     }
 
     /**
@@ -115,25 +70,115 @@ export default class ChunkCollector {
      *
      * See https://vitejs.dev/guide/backend-integration for using your own template
      */
-    getTags(includeEntrypoint?: boolean): string {
+    getTags({ includeEntry }: { includeEntry?: boolean }): string {
         const modules = this.getSortedModules();
 
         return modules
-            .filter((m) => includeEntrypoint || !m.isEntry)
+            .filter((m) => includeEntry || !m.isEntry)
             .map(createHtmlTag)
-            .filter(Boolean)
+            .filter((x) => x != null)
             .join('\n');
     }
 
     /**
      * Returns a `Link` header with all chunks to preload,
      * including entry chunks.
+     *
+     * @example res.setHeader('link', collector.getLinkHeader());
      */
     getLinkHeader(): string {
         const modules = this.getSortedModules();
         return createLinkHeader(modules);
     }
+
+    /**
+     * Returns an array of `Link` header values
+     *
+     * @example res.append('link', collector.getLinkHeaders());
+     */
+    getLinkHeaders(): string[] {
+        return this.getSortedModules()
+            .map(createSingleLinkHeader)
+            .filter((x) => x != null);
+    }
 }
+
+interface CollectorOptions {
+    /**
+     * The Vite manifest or a path to it.
+     *
+     * Set build.manifest: true in your vite config to generate it.
+     *
+     * May be missing in development mode since vite-preload has no effect there
+     *
+     * This is not the ssr-manifest.json.
+     */
+    manifest?: Manifest | string;
+
+    /**
+     * The entry module. Defaults to `index.html`
+     */
+    entry?: string;
+
+    /**
+     * Preload fonts.
+     *
+     * @default true
+     */
+    preloadFonts?: boolean;
+
+    /**
+     * Preload any static imported asset such as image, svgs
+     *
+     * @default false
+     */
+    preloadAssets?: boolean;
+}
+
+let manifestFromFile: Manifest;
+
+/**
+ * Create a chunk collector.
+ * This function will throw if not configured correctly
+ */
+export function createChunkCollector(options: CollectorOptions) {
+    let manifest: Manifest = {};
+
+    if (typeof options.manifest === 'string') {
+        if (manifestFromFile) {
+            manifest = manifestFromFile;
+        } else {
+            const data = fs.readFileSync(options.manifest, 'utf8');
+            const json = JSON.parse(data);
+            manifest = json;
+        }
+    } else {
+        manifest = options.manifest!;
+    }
+
+    if (process.env.NODE_ENV === 'production' && !options.manifest) {
+        throw new Error(
+            'options.manifest must be provided in production either as a path or object'
+        );
+    }
+
+    const entry = options.entry || 'index.html';
+
+    if (!manifest[entry]) {
+        throw new Error(`Vite manifest.json does not contain key "${entry}"`);
+    }
+
+    if (!manifest[entry].isEntry) {
+        throw new Error(`Module "${entry}" is not an entry module`);
+    }
+
+    const collector = new ChunkCollector(manifest, entry);
+    collector.preloadAssets = options.preloadAssets || false;
+    collector.preloadFonts = options.preloadFonts ?? true;
+    return collector;
+}
+
+export default createChunkCollector;
 
 /*
   url: '/src/pages/Browse/index.ts',
@@ -153,57 +198,11 @@ export default class ChunkCollector {
  */
 function collectModules(
     moduleId: string,
-    { manifest, entrypoint, viteDevServer }: ModuleCollectorOptions,
+    { entry, manifest, preloadAssets, preloadFonts }: ChunkCollector,
     preloads = new Map<string, Preload>()
 ) {
-    if (viteDevServer) {
-        const modules = collectModulesFromModuleGraph(
-            viteDevServer.moduleGraph,
-            entrypoint
-        );
-
-        console.log(modules);
-
-        for (const module of modules.values()) {
-            if (preloads.has(module.url)) continue;
-
-            // Only observed 'js' in ModuleNode.type for JS, SVGs, CSS etc.
-            // There is no way to tell if a module is an asset, for example react.svg,
-            // so for now do a weak check on the file extension to decide if the module
-            // should be preloaded or not.
-            if (
-                !/\.(jsx?|tsx?|css)/.test(module.url) &&
-                module.url !== '/@vite/client' &&
-                module.url !== '/@react-refresh'
-            ) {
-                continue;
-            }
-
-            const isPrimaryModule = module.url === entrypoint;
-            preloads.set(module.url, {
-                // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
-                rel: isPrimaryModule ? 'module' : 'modulepreload',
-
-                // ModuleGraph URLs start with /, strip it
-                href: module.url.substring(1),
-
-                isEntry: isPrimaryModule,
-            });
-        }
-
-        console.log('Dev chunks', entrypoint, preloads);
-
-        return preloads;
-    }
-
-    if (!manifest) {
-        throw new Error(
-            'No manifest.json provided. Set build.manifest to true in your vite config.'
-        );
-    }
-
     // The reported module ID is not in it's own chunk
-    if (!manifest[moduleId]) {
+    if (!manifest[moduleId] || preloads.has(moduleId)) {
         return preloads;
     }
 
@@ -215,7 +214,7 @@ function collectModules(
             continue;
         }
 
-        const isPrimaryModule = chunk.src === entrypoint;
+        const isPrimaryModule = chunk.src === entry;
         preloads.set(chunk.file, {
             // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
             rel: isPrimaryModule ? 'module' : 'modulepreload',
@@ -225,7 +224,6 @@ function collectModules(
         });
 
         for (const cssFile of chunk.css || []) {
-            // TODO In what order do we place CSS chunks in the DOM to avoid CSS ordering issues?
             if (preloads.has(cssFile)) continue;
             preloads.set(cssFile, {
                 rel: 'stylesheet',
@@ -235,11 +233,32 @@ function collectModules(
             });
         }
 
+        if (!preloadFonts && !preloadAssets) {
+            continue;
+        }
+
         // Assets such as svg, png imports
         for (const asset of chunk.assets || []) {
+            const mimeType = mime.getType(asset);
+
+            if (!mimeType) continue;
+
+            const as = mimeType.split('/')[0];
+
+            switch (as) {
+                case 'image':
+                    if (preloadAssets) break;
+                    else continue;
+                case 'font':
+                    if (preloadFonts) break;
+                    else continue;
+            }
+
             preloads.set(asset, {
                 rel: 'preload',
                 href: asset,
+                as,
+                type: mimeType,
                 comment: `Asset from chunk ${chunk.name}: ${chunk.file}`,
             });
         }
@@ -283,39 +302,4 @@ function collectChunksRecursively(
     }
 
     return chunks;
-}
-
-function collectModulesFromModuleGraph(
-    moduleGraph: ModuleGraph,
-    moduleId: string,
-    chunks = new Map<string, any>(),
-    isEntry?: boolean
-) {
-    const module = moduleGraph.urlToModuleMap.get(moduleId);
-
-    if (!module || chunks.has(module.url)) {
-        return chunks;
-    }
-
-    chunks.set(module.url, {
-        url: module.url,
-        type: module.type,
-        isEntry,
-    });
-
-    for (const importedModule of module.clientImportedModules) {
-        collectModulesFromModuleGraph(moduleGraph, importedModule.url, chunks);
-    }
-
-    return chunks;
-}
-
-function validateEntry(entry: string, manifest: Manifest) {
-    if (!manifest[entry]) {
-        throw new Error(`Manifest does not contain key "${entry}"`);
-    }
-
-    if (!manifest[entry].isEntry) {
-        throw new Error(`Module "${entry}" is not an entry module`);
-    }
 }

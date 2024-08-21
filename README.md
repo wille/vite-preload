@@ -13,6 +13,7 @@ It's a common pattern to have each page/route in your application lazy loaded es
 This plugin will collect which modules are rendered on the server and help you inject `<link>` tags and `Link` preload headers for early hints.
 
 Read more:
+
 - [Backend Integration](https://vitejs.dev/guide/backend-integration.html)
 - [Server Side Rendering](https://vitejs.dev/guide/ssr.html)
 
@@ -22,12 +23,12 @@ You can see the async chunks being loaded after the JS started executing (indica
 ![Before](./doc/before.png)
 
 ## With preloading
+
 You can see that the async chunks are loaded directly and instantly available once the JS starts executing
 ![After](./doc/after.png)
 
 > [!CAUTION]
-> This library is experimental and not guaranteed to work in your custom setup. 
-
+> This library is experimental and not guaranteed to work in your custom setup.
 
 ## Install
 
@@ -35,7 +36,7 @@ You can see that the async chunks are loaded directly and instantly available on
 $ npm install vite-preload
 ```
 
-***
+---
 
 ### See [./playground](./playground/) for a basic setup with preloading
 
@@ -43,16 +44,30 @@ $ npm install vite-preload
 
 ### `vite.config.ts`
 
+Setup the vite plugin to collect rendered async chunks.
+
+The plugin checks if any `import()` call refers to a module with a React Component as the default export and if so injects a hook `__collectModule('path/to/module')` that uses the ChunkCollector React Context to report that it was rendered.
+
+Without this plugin, we will only be able to connect scripts and CSS from the entrypoint and its static imports because we simply don't know which client chunk we render on the server.
+
 ```ts
 import preloadPlugin from 'vite-preload/plugin';
 export default defineConfig({
     plugins: [
-        preloadPlugin()
-    ]
-})
+        preloadPlugin(),
+        react(),
+        // ...
+    ],
+});
 ```
 
+> [!IMPORTANT]
+> Preloading does not apply in development mode and does not make sense to do either, but any function is safe to use
+
+---
+
 ### `App.tsx`
+
 ```tsx
 import React from 'react';
 
@@ -66,22 +81,32 @@ function App() {
                 <Card />
             </React.Suspense>
         </div>
-    )
+    );
 }
-export default App
+export default App;
 ```
 
+> [!TIP] If your component props changes while it's suspending/hydrating, React might [crash](https://react.dev/errors/421) or flash the suspense boundary to the user. (the `loading` prop).
+>
+> It's recommended to look into other solutions like [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) or react-router [Lazy Routes](https://reactrouter.com/en/main/guides/ssr#lazy-routes) to ensure that the async component is available during hydration.
+
+---
+
 ### `render.tsx`
+
 ```tsx
 import fs from 'node:fs/promises';
-import { renderToPipeableStream } from 'React';
-import { createHtmlTag, ChunkCollector, ChunkCollectorContext } from 'vite-preload';
+import { renderToString } from 'react';
+import { createChunkCollector, ChunkCollectorContext } from 'vite-preload';
 
-function render(req, res) {
-    const template = await fs.readFile('./dist/client/index.html', 'utf8');
+async function render(req, res) {
+    // No template in dev
+    const template = process.env.NODE_ENV === 'production'
+        ? await fs.readFile('./dist/client/index.html', 'utf8')
+        : undefined;
 
-    const collector = new ChunkCollector();
-    renderToPipeableStream(
+    const collector = createChunkCollector();
+    const html = renderToString(
         <ChunkCollectorContext collector={collector}>
             <App />
         </ChunkCollectorContext>
@@ -91,19 +116,17 @@ function render(req, res) {
 
     // <link rel=modulepreload href="/assets/Card.tsx" crossorigin nonce="">
     // <link rel=stylesheet href="/assets/Card.css" nonce="">
-    const htmlTags = modules
-        .filter(m => !m.isEntry) // Skip entry modules as they are already present in the HTML by the client build
-        .map(createHtmlTag)
-        .join('\n');
+    const linkTags = collector.getTags();
 
     template = template
-        .replace('</head>', `${htmlTags}\n</head>`)
+        .replace('</head>', `${linkTags}\n</head>`) // Injecting in the bottom to ensure CSS ordering, entry chunk CSS should always come first in the <head>.
         .replace('<!--html-->', html);
         .replaceAll('%NONCE%', 'Your csp nonce');
 
+    const linkHeaders = collector.getLinkHeaders();
     // Link: </assets/Card.tsx>; rel=modulepreload; crossorigin
     // Link: </assets/Card.css>; rel=preload; as=style; crossorigin
-    res.append('link', modules.map(createLinkHeader));
+    res.append('link', linkHeaders);
 
     // Services like cloudflare will automatically setup HTTP 103 Early Hints but you can also do it yourself...
     // res.writeEarlyHints...
@@ -112,8 +135,26 @@ function render(req, res) {
 }
 ```
 
-> [!WARN]
-> There is CURRENTLY no support for CSS in the development environment because Vite handles CSS as inline style tags so you will still experience some Flash Of Unstyled Content .
+### Example HTTP response with `Link` headers and HTML stylesheets/preloads
+
+```html
+HTTP/1.1 200
+content-type: text/html; charset=utf-8
+link: </assets/Card.tsx>; rel=modulepreload; crossorigin
+link: </assets/Card.css>; rel=preload; as=style; crossorigin
+
+<html>
+    <head>
+        ...
+        <link rel=modulepreload href="/assets/Card.tsx" crossorigin nonce="">
+        <link rel=stylesheet href="/assets/Card.css" crossorigin nonce="">
+        ...
+    </head>
+    <body>
+        ...
+    </body>
+</html>
+```
 
 ## Further optimizations
 
@@ -121,7 +162,8 @@ function render(req, res) {
 
 If your app knows what pages or components that should be preloaded, like the next obvious path the user will make in your user flow, it's recommended to lazy load them with something like `lazyWithPreload`.
 
-Even if you would use a `import()` call to preload the chunk, React will still suspend 
+Even if you would use a `import()` call to preload the chunk, React will still suspend
+
 ```tsx
 import lazyWithPreload from 'react-lazy-with-preload';
 
@@ -129,6 +171,6 @@ const Card = lazyWithPreload(() => import('./Card'));
 Card.preload();
 ```
 
-### react-router Lazy Routes
+### Using dynamic imports with react-router Lazy Routes
 
 See https://reactrouter.com/en/main/guides/ssr#lazy-routes
