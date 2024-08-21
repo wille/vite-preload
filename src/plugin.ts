@@ -34,44 +34,42 @@ export default function preloadPlugin({
     return {
         name: 'vite-preload',
 
-        apply(config, { command }) {
+        apply(config) {
             // Enable on SSR builds (--ssr)
-            return Boolean(config.build?.ssr)
+            return Boolean(config.build?.ssr);
         },
 
         async transform(code, id) {
+            if (!include.test(id)) {
+                return null;
+            }
+
             const relative = getRelativePath(id);
 
             const foundLazyImports = new Set<string>();
 
-            if (include.test(id) && code.includes('lazy')) {
-                const ast = parse(code, {
-                    sourceType: 'module',
-                    plugins: ['jsx', 'typescript'],
-                });
+            const ast = parse(code, {
+                sourceType: 'module',
+                plugins: ['jsx', 'typescript'],
+            });
 
-                // Find React.lazy imported modules
-                traverse(ast, {
-                    CallExpression: (p) => {
-                        if (isLazyExpression(p)) {
-                            const argument = p.node.arguments[0];
-                            if (t.isArrowFunctionExpression(argument)) {
-                                const body = argument.body;
-                                if (
-                                    t.isCallExpression(body) &&
-                                    t.isImport(body.callee)
-                                ) {
-                                    const modulePath = (
-                                        body.arguments[0] as any
-                                    ).value;
+            // Find React.lazy imported modules
+            traverse(ast, {
+                Import(path) {
+                    if (!path.parent['arguments']) {
+                        return;
+                    }
 
-                                    foundLazyImports.add(modulePath);
-                                }
-                            }
+                    const importArgument = path.parent['arguments'][0];
+
+                    if (importArgument) {
+                        // Dynamic import of a dynamic module is not supported
+                        if (importArgument.type === 'StringLiteral') {
+                            foundLazyImports.add(importArgument.value);
                         }
-                    },
-                });
-            }
+                    }
+                },
+            });
 
             for (const importString of foundLazyImports) {
                 const relative = path.resolve(path.dirname(id), importString);
@@ -82,19 +80,13 @@ export default function preloadPlugin({
                 }
 
                 this.info(
-                    `imports ${path.relative(process.cwd(), resolved.id)}`
+                    `dynamically imports ${path.relative(process.cwd(), resolved.id)}`
                 );
 
                 lazyImportedModules.add(resolved.id);
-                // await this.load({ id: resolved.id });
             }
 
             if (lazyImportedModules.has(id)) {
-                const ast = parse(code, {
-                    sourceType: 'module',
-                    plugins: ['jsx', 'typescript'],
-                });
-
                 let injected = false;
 
                 traverse(ast, {
@@ -205,31 +197,6 @@ function isFunctionComponent(node) {
         t.isFunctionExpression(node) ||
         t.isArrowFunctionExpression(node)
     );
-}
-
-function isLazyExpression(p) {
-    // Ensure p.node and p.node.callee exist before proceeding
-    if (!p.node || !p.node.callee) {
-        return false;
-    }
-
-    const callee = p.node.callee;
-
-    // Check if it's a React.lazy expression
-    const isReactLazy =
-        t.isMemberExpression(callee) &&
-        callee.object.name === 'React' &&
-        callee.property.name === 'lazy';
-
-    // Check if it's a standalone lazy or lazyWithPreload function call
-    const isStandaloneLazy =
-        t.isIdentifier(callee) &&
-        (callee.name === 'lazy' || callee.name === 'lazyWithPreload');
-
-    // Log the node for debugging
-
-    // Return true if any of the conditions match
-    return isReactLazy || isStandaloneLazy;
 }
 
 function getRelativePath(filePath) {

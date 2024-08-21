@@ -70,7 +70,7 @@ export class ChunkCollector {
      *
      * See https://vitejs.dev/guide/backend-integration for using your own template
      */
-    getTags({ includeEntry }: { includeEntry?: boolean }): string {
+    getTags({ includeEntry }: { includeEntry?: boolean } = {}): string {
         const modules = this.getSortedModules();
 
         return modules

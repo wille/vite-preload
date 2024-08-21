@@ -27,9 +27,6 @@ You can see the async chunks being loaded after the JS started executing (indica
 You can see that the async chunks are loaded directly and instantly available once the JS starts executing
 ![After](./doc/after.png)
 
-> [!CAUTION]
-> This library is experimental and not guaranteed to work in your custom setup.
-
 ## Install
 
 ```
@@ -86,7 +83,8 @@ function App() {
 export default App;
 ```
 
-> [!TIP] If your component props changes while it's suspending/hydrating, React might [crash](https://react.dev/errors/421) or flash the suspense boundary to the user. (the `loading` prop).
+> [!TIP]
+> If your component props changes while it's suspending/hydrating, React might [crash](https://react.dev/errors/421) or flash the suspense boundary to the user. (the `loading` prop).
 >
 > It's recommended to look into other solutions like [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) or react-router [Lazy Routes](https://reactrouter.com/en/main/guides/ssr#lazy-routes) to ensure that the async component is available during hydration.
 

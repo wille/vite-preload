@@ -78,7 +78,7 @@ function linkPriority(module: Preload) {
             return 0;
         default:
             return -1;
-    } 
+    }
 }
 
 export function sortPreloads(modules: Preload[]) {
