@@ -146,33 +146,38 @@ let manifestFromFile: Manifest;
  */
 export function createChunkCollector(options: CollectorOptions) {
     let manifest: Manifest = {};
-
-    if (typeof options.manifest === 'string') {
-        if (manifestFromFile) {
-            manifest = manifestFromFile;
-        } else {
-            const data = fs.readFileSync(options.manifest, 'utf8');
-            const json = JSON.parse(data);
-            manifest = json;
-        }
-    } else {
-        manifest = options.manifest!;
-    }
-
-    if (process.env.NODE_ENV === 'production' && !options.manifest) {
-        throw new Error(
-            'options.manifest must be provided in production either as a path or object'
-        );
-    }
-
     const entry = options.entry || 'index.html';
 
-    if (!manifest[entry]) {
-        throw new Error(`Vite manifest.json does not contain key "${entry}"`);
-    }
+    const enabled = process.env.NODE_ENV === 'production';
 
-    if (!manifest[entry].isEntry) {
-        throw new Error(`Module "${entry}" is not an entry module`);
+    if (enabled) {
+        if (typeof options.manifest === 'string') {
+            if (manifestFromFile) {
+                manifest = manifestFromFile;
+            } else {
+                const data = fs.readFileSync(options.manifest, 'utf8');
+                const json = JSON.parse(data);
+                manifest = json;
+            }
+        } else {
+            manifest = options.manifest!;
+        }
+
+        if (!options.manifest) {
+            throw new Error(
+                'options.manifest must be provided in production either as a path or object'
+            );
+        }
+
+        if (!manifest[entry]) {
+            throw new Error(
+                `Vite manifest.json does not contain key "${entry}"`
+            );
+        }
+
+        if (!manifest[entry].isEntry) {
+            throw new Error(`Module "${entry}" is not an entry module`);
+        }
     }
 
     const collector = new ChunkCollector(manifest, entry);

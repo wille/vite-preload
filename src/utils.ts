@@ -14,7 +14,14 @@ export interface Preload {
     isEntry?: boolean;
 }
 
-export function createHtmlTag({ rel, href, as, type, comment, nonce }: Preload) {
+export function createHtmlTag({
+    rel,
+    href,
+    as,
+    type,
+    comment,
+    nonce,
+}: Preload) {
     let tag = comment ? `<!-- ${comment} -->\n` : '';
 
     const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
