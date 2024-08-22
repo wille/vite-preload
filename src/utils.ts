@@ -8,22 +8,26 @@ export interface Preload {
     // mime type for link preload
     type?: string;
 
+    nonce?: string;
+
     comment?: string;
     isEntry?: boolean;
 }
 
-export function createHtmlTag({ rel, href, as, type, comment }: Preload) {
+export function createHtmlTag({ rel, href, as, type, comment, nonce }: Preload) {
     let tag = comment ? `<!-- ${comment} -->\n` : '';
+
+    const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
 
     switch (rel) {
         case 'stylesheet':
-            tag += `<link rel="stylesheet" href="/${href}" crossorigin nonce="%NONCE%" />`;
+            tag += `<link rel="stylesheet" href="/${href}" crossorigin${nonceAttr} />`;
             break;
         case 'modulepreload':
-            tag += `<link rel="modulepreload" href="/${href}" crossorigin nonce="%NONCE%" />`;
+            tag += `<link rel="modulepreload" href="/${href}" crossorigin${nonceAttr} />`;
             break;
         case 'module':
-            tag += `<script type="module" src="/${href}" crossorigin nonce="%NONCE%"></script>`;
+            tag += `<script type="module" src="/${href}" crossorigin${nonceAttr}></script>`;
             break;
         case 'preload':
             const crossorigin = as === 'font' || as === 'fetch';

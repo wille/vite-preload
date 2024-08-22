@@ -94,6 +94,7 @@ app.use('*', async (req, res) => {
             manifest,
             preloadAssets: true,
             preloadFonts: true,
+            nonce: '%NONCE%',
         });
 
         const html = await renderStream(render, collector);

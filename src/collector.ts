@@ -25,14 +25,12 @@ interface ManifestChunk {
 type Manifest = Record<string, ManifestChunk>;
 
 export class ChunkCollector {
-    /**
-     * Detected module IDs
-     */
     modulesIds = new Set<string>();
-    modules = new Map<string, Preload>();
+    preloads = new Map<string, Preload>();
 
     preloadFonts = true;
     preloadAssets = false;
+    nonce = '';
 
     constructor(
         public manifest: Manifest,
@@ -46,7 +44,7 @@ export class ChunkCollector {
         this.getLinkHeaders = this.getLinkHeaders.bind(this);
 
         // Load the entry modules
-        collectModules(entry, this, this.modules);
+        collectModules(entry, this);
     }
 
     /**
@@ -54,11 +52,11 @@ export class ChunkCollector {
      */
     __context_collectModuleId(moduleId: string) {
         this.modulesIds.add(moduleId);
-        collectModules(moduleId, this, this.modules);
+        collectModules(moduleId, this);
     }
 
     getSortedModules() {
-        const modules = Array.from(this.modules.values());
+        const modules = Array.from(this.preloads.values());
         return sortPreloads(modules);
     }
 
@@ -133,6 +131,11 @@ interface CollectorOptions {
      * @default false
      */
     preloadAssets?: boolean;
+
+    /**
+     * Nonce for scripts and stylesheets
+     */
+    nonce?: string;
 }
 
 let manifestFromFile: Manifest;
@@ -198,8 +201,14 @@ export default createChunkCollector;
  */
 function collectModules(
     moduleId: string,
-    { entry, manifest, preloadAssets, preloadFonts }: ChunkCollector,
-    preloads = new Map<string, Preload>()
+    {
+        entry,
+        manifest,
+        preloadAssets,
+        preloadFonts,
+        preloads,
+        nonce,
+    }: ChunkCollector
 ) {
     // The reported module ID is not in it's own chunk
     if (!manifest[moduleId] || preloads.has(moduleId)) {
@@ -221,6 +230,7 @@ function collectModules(
             href: chunk.file,
             comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
             isEntry: chunk.isEntry,
+            nonce,
         });
 
         for (const cssFile of chunk.css || []) {
@@ -230,6 +240,7 @@ function collectModules(
                 href: cssFile,
                 comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
                 isEntry: chunk.isEntry,
+                nonce,
             });
         }
 

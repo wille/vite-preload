@@ -103,7 +103,10 @@ async function render(req, res) {
         ? await fs.readFile('./dist/client/index.html', 'utf8')
         : undefined;
 
-    const collector = createChunkCollector();
+    const collector = createChunkCollector({
+        nonce: './dist/client/.vite/manifest.json',
+        manifest: 
+    });
     const html = renderToString(
         <ChunkCollectorContext collector={collector}>
             <App />
