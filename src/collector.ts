@@ -157,7 +157,7 @@ export function createChunkCollector(options: CollectorOptions) {
             } else {
                 const data = fs.readFileSync(options.manifest, 'utf8');
                 const json = JSON.parse(data);
-                manifest = json;
+                manifestFromFile = manifest = json;
             }
         } else {
             manifest = options.manifest!;
