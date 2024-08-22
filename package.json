@@ -1,7 +1,7 @@
 {
   "name": "vite-preload",
-  "version": "0.0.1",
-  "description": "Preload lazy loaded CSS and Modules when Server Side Rendering a Vite app with React",
+  "version": "0.0.2",
+  "description": "Speed up your Vite application by preloading async modules and stylesheets as early as possible",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "exports": {
@@ -23,7 +23,6 @@
     "./dist"
   ],
   "scripts": {
-    "prepare": "npm run build",
     "test": "tsc",
     "build": "rollup -c rollup.config.js"
   },
