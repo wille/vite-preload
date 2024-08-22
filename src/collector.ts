@@ -30,7 +30,7 @@ export class ChunkCollector {
 
     preloadFonts = true;
     preloadAssets = false;
-    nonce = '';
+    nonce: string;
 
     constructor(
         public manifest: Manifest,
@@ -183,6 +183,7 @@ export function createChunkCollector(options: CollectorOptions) {
     const collector = new ChunkCollector(manifest, entry);
     collector.preloadAssets = options.preloadAssets || false;
     collector.preloadFonts = options.preloadFonts ?? true;
+    collector.nonce = options.nonce!;
     return collector;
 }
 
