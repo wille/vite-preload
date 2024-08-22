@@ -23,6 +23,7 @@
     "./dist"
   ],
   "scripts": {
+    "prepare": "npm run build",
     "test": "tsc",
     "build": "rollup -c rollup.config.js"
   },
