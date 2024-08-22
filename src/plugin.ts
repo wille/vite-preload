@@ -13,8 +13,6 @@ const traverse = importDefault(_traverse);
 const generate = importDefault(_generate);
 
 interface PluginOptions {
-    include?: RegExp;
-
     /**
      * Internal
      */
@@ -23,8 +21,13 @@ interface PluginOptions {
 
 const hookFunctionName = '__collectModule';
 
+// Modules to scan for dynamic imports
+const include = /\.(jsx?|tsx?)$/;
+
+// Dynamically import modules to try to inject hook into
+const includeJsx = /\.(jsx|tsx)$/;
+
 export default function preloadPlugin({
-    include = /\.(jsx|tsx|js|ts)$/,
     __internal_importHelperModuleName = 'vite-preload/__internal',
 }: PluginOptions = {}): Plugin {
     const lazyImportedModules = new Set();
@@ -77,10 +80,14 @@ export default function preloadPlugin({
 
             for (const importString of foundLazyImports) {
                 const relative = path.resolve(path.dirname(id), importString);
-                const resolved = await this.resolve(importString, id);
 
+                const resolved = await this.resolve(importString, id);
                 if (!resolved) {
                     throw new Error(`Did not find imported module ${relative}`);
+                }
+
+                if (!includeJsx.test(resolved.id)) {
+                    continue;
                 }
 
                 this.info(
@@ -103,7 +110,7 @@ export default function preloadPlugin({
                         const declaration = path.node.declaration;
 
                         // Insert hook in `export default function() { ... }`
-                        if (isFunctionComponent(declaration)) {
+                        if (isReactFunctionComponent(declaration)) {
                             injectImport(
                                 ast,
                                 __internal_importHelperModuleName
@@ -117,7 +124,7 @@ export default function preloadPlugin({
                             );
                             if (
                                 binding &&
-                                isFunctionComponent(binding.path.node)
+                                isReactFunctionComponent(binding.path.node)
                             ) {
                                 injectImport(
                                     ast,
@@ -200,7 +207,7 @@ function injectImport(ast, importHelper) {
     }
 }
 
-function isFunctionComponent(node) {
+function isReactFunctionComponent(node) {
     return (
         t.isFunctionDeclaration(node) ||
         t.isFunctionExpression(node) ||

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModuleCollectorContext } from './__internal';
+import { Context } from './__internal';
 import { ChunkCollector } from './collector';
 
 /**
@@ -27,9 +27,9 @@ export default function ChunkCollectorContext({
 }) {
     // React 19 support
     const ContextComponent =
-        'Provider' in ModuleCollectorContext
-            ? ModuleCollectorContext.Provider
-            : ModuleCollectorContext;
+        'Provider' in Context
+            ? Context.Provider
+            : Context;
 
     return React.createElement(
         ContextComponent,
