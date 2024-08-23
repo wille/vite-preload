@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Context = React.createContext((id: string) => {
+export const Context = React.createContext<(moduleId: string) => void>((id: string) => {
     throw new Error('ChunkCollectorContext not setup');
 });
 
