@@ -59,7 +59,7 @@ export default defineConfig({
 ```
 
 > [!IMPORTANT]
-> Preloading does not apply in development mode and does not make sense to do either, but any function is safe to use
+> Preloading does not apply in development mode and does not make sense to do either, but any function is safe to use. In development mode, Vite will load CSS using <style> tags on demand, which will always come with some Flash Of Unstyled Content (FOUC)
 
 ---
 
