@@ -26,10 +26,7 @@ export default function ChunkCollectorContext({
     children: any;
 }) {
     // React 19 support
-    const ContextComponent =
-        'Provider' in Context
-            ? Context.Provider
-            : Context;
+    const ContextComponent = 'Provider' in Context ? Context.Provider : Context;
 
     return React.createElement(
         ContextComponent,
