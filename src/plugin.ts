@@ -17,6 +17,11 @@ interface PluginOptions {
      * Internal
      */
     __internal_importHelperModuleName?: string;
+
+    /**
+     * Enables extensive build logs
+     */
+    debug?: boolean;
 }
 
 const hookFunctionName = '__collectModule';
@@ -29,6 +34,7 @@ const includeJsx = /\.(jsx|tsx)$/;
 
 export default function preloadPlugin({
     __internal_importHelperModuleName = 'vite-preload/__internal',
+    debug,
 }: PluginOptions = {}): Plugin {
     const lazyImportedModules = new Set();
     const injectedModules = new Set();
@@ -90,9 +96,11 @@ export default function preloadPlugin({
                     continue;
                 }
 
-                this.info(
-                    `dynamically imports ${path.relative(process.cwd(), resolved.id)}`
-                );
+                if (debug) {
+                    this.info(
+                        `dynamically imports ${path.relative(process.cwd(), resolved.id)}`
+                    );
+                }
 
                 lazyImportedModules.add(resolved.id);
             }
@@ -138,7 +146,11 @@ export default function preloadPlugin({
                 });
 
                 if (injected) {
-                    this.info('Injected __collectModule in React component');
+                    if (debug) {
+                        this.info(
+                            'Injected __collectModule in React component'
+                        );
+                    }
                     count++;
                     const output = generate(ast, {}, code);
                     injectedModules.add(id);
@@ -153,9 +165,11 @@ export default function preloadPlugin({
         },
 
         buildEnd() {
-            const s = lazyImportedModules.difference(injectedModules);
-            for (const z of s) {
-                this.info(`${z} was not injected`);
+            if (debug) {
+                const s = lazyImportedModules.difference(injectedModules);
+                for (const z of s) {
+                    this.warn(`${z} was not injected`);
+                }
             }
             this.info(`${count} hook calls injected`);
         },

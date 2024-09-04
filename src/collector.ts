@@ -7,9 +7,6 @@ import {
     sortPreloads,
 } from './utils';
 import mime from 'mime';
-import debug from 'debug';
-
-const log = debug('vite-preload');
 
 interface ManifestChunk {
     src: string;

@@ -1,7 +1,7 @@
 {
   "name": "vite-preload",
-  "version": "0.0.2",
-  "description": "Speed up your Vite application by preloading async modules and stylesheets as early as possible",
+  "version": "1.0.0",
+  "description": "Speed up your Vite application by preloading server rendered lazy modules and stylesheets as early as possible",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "exports": {
@@ -23,7 +23,6 @@
     "./dist"
   ],
   "scripts": {
-    "prepare": "npm run build",
     "test": "tsc",
     "build": "rollup -c rollup.config.js"
   },
@@ -37,7 +36,6 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/babel__parser": "^7.0.0",
     "@types/babel__traverse": "^7.20.6",
-    "@types/debug": "^4.1.12",
     "@types/node": "^22.3.0",
     "@types/react": "^18.3.3",
     "prettier": "^3.3.3",
@@ -46,9 +44,8 @@
     "typescript": "^5.5.4"
   },
   "peerDependencies": {
-    "debug": "^4",
     "react": ">= 18",
-    "vite": "^5.4.0"
+    "vite": "^5"
   },
   "dependencies": {
     "@babel/generator": "^7.25.0",
@@ -56,5 +53,13 @@
     "@babel/traverse": "^7.25.3",
     "@babel/types": "^7.25.2",
     "mime": "^4.0.4"
-  }
+  },
+  "keywords": [
+    "react",
+    "css",
+    "ssr",
+    "esmodules",
+    "vite",
+    "vite-plugin"
+  ]
 }
