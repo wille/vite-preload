@@ -4,11 +4,13 @@
 
 This plugin will significantly speed up your server rendered vite application by preloading async modules and stylesheets as early as possible and help you avoiding Flash Of Unstyled Content (FOUC) by including stylesheets from async modules in the initial HTML.
 
+Similar to [loadable-components](https://loadable-components.com/) but built for Vite.
+
+#### See [./playground](./playground/) for a basic setup with preloading
+
 ## Explainer
 
-Vite supports `React.lazy()` and dynamic imports just fine but any lazy imported modules and its CSS imports will not be injected into html or DOM until the entrypoint module has imported them.
-
-It's a common pattern to have each page/route in your application lazy loaded especially if you are migrating to Vite from something else like webpack with loadable-components.
+Vite supports dynamic imports just fine but any lazy imported modules and its CSS imports will only be loaded once the parent module has been loaded and executed. This can lead to a Flash Of Unstyled Content (FOUC) if the async module is rendered on the server and the browser has not yet loaded the CSS.
 
 This plugin will collect which modules are rendered on the server and help you inject `<link>` tags in the HTML `<head>` and `Link` preload headers for [103 Early Hints](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/103)
 
@@ -22,17 +24,11 @@ You can see the async chunks being loaded after the JS started executing (indica
 You can see that the async chunks are loaded directly and instantly available once the JS starts executing
 ![After](./doc/after.png)
 
-## Install
+## Installation
 
 ```
 $ npm install vite-preload
 ```
-
----
-
-### See [./playground](./playground/) for a basic setup with preloading
-
-## Psuedo example highlighting the important parts
 
 ### `vite.config.ts`
 
@@ -54,7 +50,7 @@ export default defineConfig({
 ```
 
 > [!IMPORTANT]
-> Preloading does not apply in development mode and does not make sense to do either, but any function is safe to use. In development mode, Vite will load CSS using <style> tags on demand, which will always come with some Flash Of Unstyled Content (FOUC)
+> Preloading does not apply in development mode but any function is safe to use. In development mode, Vite will load CSS using style tags on demand, which will always come with some Flash Of Unstyled Content (FOUC)
 
 ---
 
@@ -136,13 +132,17 @@ async function render(req, res) {
 ```html
 HTTP/1.1 200
 content-type: text/html; charset=utf-8
+link: </assets/index-CG7aErjv.js>; rel=modulepreload; crossorigin
+link: </assets/index-Be6T33si.css>; rel=preload; as=style; crossorigin
 link: </assets/Card.tsx>; rel=modulepreload; crossorigin
 link: </assets/Card.css>; rel=preload; as=style; crossorigin
 
 <html>
     <head>
         ...
+        <script type="module" crossorigin src="/assets/index-CG7aErjv.js"></script>
         <link rel=modulepreload href="/assets/Card.tsx" crossorigin nonce="">
+        <link rel="stylesheet" crossorigin href="/assets/index-Be6T33si.css">
         <link rel=stylesheet href="/assets/Card.css" crossorigin nonce="">
         ...
     </head>
@@ -152,27 +152,101 @@ link: </assets/Card.css>; rel=preload; as=style; crossorigin
 </html>
 ```
 
-## Further optimizations
+## Migrating from `loadable-components`
 
-### Preloading `React.lazy`
+...
 
-If your app knows what pages or components that should be preloaded, like the next obvious path the user will make in your user flow, it's recommended to lazy load them with something like `lazyWithPreload`.
+## Usage with `React.lazy`
 
-Even if you would use a `import()` call to preload the chunk, React will still suspend
+React.lazy works with Server Rendering using the React Streaming APIs like [renderToPipeableStream](https://react.dev/reference/react-dom/server/renderToPipeableStream)
 
 ```tsx
-import lazyWithPreload from 'react-lazy-with-preload';
+import { lazy, Suspense } from 'react';
 
-const Card = lazyWithPreload(() => import('./Card'));
-Card.preload();
+const Card = lazy(() => import('./Card'));
+
+function App() {
+    return (
+        <div>
+            <Suspense fallback={<p>Suspending...</p>}>
+                <Card />
+            </Suspense>
+        </div>
+    )
+}
 ```
 
-### Using dynamic imports with react-router Lazy Routes
+> [!NOTE]
+> React.lazy has some undesirable behaviour in server rendering.
+>
+> - The first render on the server will always trigger the suspense fallback. One solution to fix this is to use something similar to [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) and .preload() every single lazy import on the server
+> - Larger components in large projects that takes time to load will trigger the suspense fallback on the client side, even if the component is already loaded on the server. This can be fixed by using [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) and .preload() every single lazy import on the server
+> 
+
+## Usage with `react-router`
+
+React Router v6 supports lazy routes using the `lazy` prop on the `Route` component.
+
+When navigating on the client side to a lazy route, the document will not repaint until the lazy route has been loaded, avoding a flash of white like when using loadable-components.
+
+When hydrating a lazy route, the server render HTML will be thrown away, cause a hydration mismatch error, then load and render again.
+To prevent this so you will need preload all the lazy routes rendered by the server like in the example below.
+
+> [!NOTE]
+> 
+
+```tsx
+import { Route } from 'react-router'
+import { hydrateRoot } from 'react-dom/server'
+
+function lazyRoute(dynamicImportFn: () => Promise<any>) {
+  return async () => {
+    const { default: Component } = await dynamicImportFn();
+    return { Component };
+  };
+}
+
+const routes = (
+    <Route lazy={lazyRoute(() => import('./Card'))} />
+)
+
+function loadLazyRoutes() {
+    const matches = matchRoutes(routes, window.location);
+
+    if (!matches) {
+        return;
+    }
+
+    const promises = matches.map(match => {
+        if (!m.route.lazy) {
+            return;
+        }
+        const routeModule = await m.route.lazy!();
+
+        m.route.Component = routeModule.Component;
+        delete m.route.lazy;
+        Object.assign(m.route, {
+            ...routeModule,
+            lazy: undefined,
+        });
+    });
+
+    await Promise.all(promises);
+}
+
+async function main() {
+    await loadLazyRoutes();
+
+    ReactDOM.hydrateRoot(
+        <RouterProvider router={router} />,
+        document.getElementById('root')
+    );
+}
+```
 
 See https://reactrouter.com/en/main/guides/ssr#lazy-routes
 
-
-### Read more:
+### Read more in the Vite documentation
 
 - [Backend Integration](https://vitejs.dev/guide/backend-integration.html)
 - [Server Side Rendering](https://vitejs.dev/guide/ssr.html)
