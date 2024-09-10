@@ -85,6 +85,7 @@ export default App;
 
 ```tsx
 import fs from 'node:fs/promises';
+import crypto from 'node
 import { renderToString } from 'react';
 import { createChunkCollector, ChunkCollectorContext } from 'vite-preload';
 
@@ -95,9 +96,10 @@ async function render(req, res) {
         : undefined;
 
     const collector = createChunkCollector({
-        nonce: './dist/client/.vite/manifest.json',
-        manifest: 
+        manifest: './dist/client/.vite/manifest.json'
     });
+
+    // TODO Just for demo purposes, you need to use a streaming API like renderToPipeableStream for suspense to work on the server
     const html = renderToString(
         <ChunkCollectorContext collector={collector}>
             <App />
@@ -141,9 +143,9 @@ link: </assets/Card.css>; rel=preload; as=style; crossorigin
     <head>
         ...
         <script type="module" crossorigin src="/assets/index-CG7aErjv.js"></script>
-        <link rel=modulepreload href="/assets/Card.tsx" crossorigin nonce="">
+        <link rel=modulepreload href="/assets/Card.tsx" crossorigin >
         <link rel="stylesheet" crossorigin href="/assets/index-Be6T33si.css">
-        <link rel=stylesheet href="/assets/Card.css" crossorigin nonce="">
+        <link rel=stylesheet href="/assets/Card.css" crossorigin >
         ...
     </head>
     <body>
@@ -154,7 +156,9 @@ link: </assets/Card.css>; rel=preload; as=style; crossorigin
 
 ## Migrating from `loadable-components`
 
-...
+Replace all `loadable(() => import('./module'))` with `React.lazy(() => import('./module'))` and evaluate if it performs well enough for your use case.
+
+Look into the examples below for other ways to optimize your app.
 
 ## Usage with `React.lazy`
 
@@ -177,23 +181,22 @@ function App() {
 ```
 
 > [!NOTE]
-> React.lazy has some undesirable behaviour in server rendering.
+> React.lazy has some undeterministic behaviour in server rendering.
 >
 > - The first render on the server will always trigger the suspense fallback. One solution to fix this is to use something similar to [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) and .preload() every single lazy import on the server
-> - Larger components in large projects that takes time to load will trigger the suspense fallback on the client side, even if the component is already loaded on the server. This can be fixed by using [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) and .preload() every single lazy import on the server
-> 
+> - Larger components in large projects that takes time to load will trigger the suspense fallback on the client side, even if the component is server rendered. This might be avoided by preloading all async routes before hydration and skipping the top level Suspense boundary.
+
 
 ## Usage with `react-router`
 
 React Router v6 supports lazy routes using the `lazy` prop on the `Route` component.
 
-When navigating on the client side to a lazy route, the document will not repaint until the lazy route has been loaded, avoding a flash of white like when using loadable-components.
-
-When hydrating a lazy route, the server render HTML will be thrown away, cause a hydration mismatch error, then load and render again.
-To prevent this so you will need preload all the lazy routes rendered by the server like in the example below.
+When navigating on the client side to a lazy route, the document will not repaint until the lazy route has been loaded, avoiding a flash of white like when using loadable-components with react-router. This might have a negative impact on your [INP](https://web.dev/articles/inp) metric, so you might want to use deterministic loading of lazy routes like preloading the next step in the user flow or preloading them all in the background after the primary modules has been loaded.
 
 > [!NOTE]
-> 
+> When hydrating a lazy route, the server rendered HTML will be thrown away, cause a hydration mismatch error, then load and render again.
+> To prevent this so you will need preload all the lazy routes rendered by the server like in the example below.
+> See https://reactrouter.com/en/main/guides/ssr#lazy-routes
 
 ```tsx
 import { Route } from 'react-router'
@@ -201,9 +204,9 @@ import { hydrateRoot } from 'react-dom/server'
 
 function lazyRoute(dynamicImportFn: () => Promise<any>) {
   return async () => {
-    const { default: Component } = await dynamicImportFn();
-    return { Component };
-  };
+    const { default: Component } = await dynamicImportFn()
+    return { Component }
+  }
 }
 
 const routes = (
@@ -214,37 +217,35 @@ function loadLazyRoutes() {
     const matches = matchRoutes(routes, window.location);
 
     if (!matches) {
-        return;
+        return
     }
 
     const promises = matches.map(match => {
         if (!m.route.lazy) {
-            return;
+            return
         }
-        const routeModule = await m.route.lazy!();
+        const routeModule = await m.route.lazy!()
 
-        m.route.Component = routeModule.Component;
-        delete m.route.lazy;
+        m.route.Component = routeModule.Component
+        delete m.route.lazy
         Object.assign(m.route, {
             ...routeModule,
             lazy: undefined,
-        });
+        })
     });
 
-    await Promise.all(promises);
+    await Promise.all(promises)
 }
 
 async function main() {
-    await loadLazyRoutes();
+    await loadLazyRoutes()
 
     ReactDOM.hydrateRoot(
         <RouterProvider router={router} />,
         document.getElementById('root')
-    );
+    )
 }
 ```
-
-See https://reactrouter.com/en/main/guides/ssr#lazy-routes
 
 ### Read more in the Vite documentation
 
