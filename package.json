@@ -36,12 +36,12 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/babel__parser": "^7.0.0",
     "@types/babel__traverse": "^7.20.6",
-    "@types/node": "^22.3.0",
-    "@types/react": "^18.3.3",
+    "@types/node": "^22.5.4",
+    "@types/react": "^18.3.5",
     "prettier": "^3.3.3",
-    "rollup": "^4.20.0",
-    "tslib": "^2.6.3",
-    "typescript": "^5.5.4"
+    "rollup": "^4.21.3",
+    "tslib": "^2.7.0",
+    "typescript": "^5.6.2"
   },
   "peerDependencies": {
     "react": ">= 18",
@@ -49,10 +49,10 @@
   },
   "dependencies": {
     "@babel/generator": "^7.25.0",
-    "@babel/parser": "^7.25.3",
-    "@babel/traverse": "^7.25.3",
-    "@babel/types": "^7.25.2",
-    "mime": "^4.0.4",
+    "@babel/parser": "^7.25.0",
+    "@babel/traverse": "^7.25.0",
+    "@babel/types": "^7.25.0",
+    "mime": "^4",
     "react-lazy-with-preload": "^2.2.1"
   },
   "keywords": [
