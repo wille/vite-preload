@@ -1,6 +1,6 @@
 {
   "name": "vite-preload",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Speed up your Vite application by preloading server rendered lazy modules and stylesheets as early as possible",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
