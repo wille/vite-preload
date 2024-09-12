@@ -45,14 +45,15 @@
   },
   "peerDependencies": {
     "react": ">= 18",
-    "vite": "^5"
+    "vite": ">= 5"
   },
   "dependencies": {
     "@babel/generator": "^7.25.0",
     "@babel/parser": "^7.25.3",
     "@babel/traverse": "^7.25.3",
     "@babel/types": "^7.25.2",
-    "mime": "^4.0.4"
+    "mime": "^4.0.4",
+    "react-lazy-with-preload": "^2.2.1"
   },
   "keywords": [
     "react",

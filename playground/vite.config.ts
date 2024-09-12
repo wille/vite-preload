@@ -8,6 +8,7 @@ export default defineConfig({
         react(),
         preloadPlugin({
             __internal_importHelperModuleName: '../../src/__internal',
+            debug: true,
         }),
     ],
     build: {

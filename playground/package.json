@@ -13,8 +13,8 @@
     "dependencies": {
         "compression": "^1.7.4",
         "express": "^4.19.2",
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0",
+        "react": "19.0.0-rc-e210d081-20240909",
+        "react-dom": "19.0.0-rc-e210d081-20240909",
         "sirv": "^2.0.4"
     },
     "devDependencies": {
@@ -25,6 +25,6 @@
         "@vitejs/plugin-react": "^4.2.1",
         "cross-env": "^7.0.3",
         "typescript": "^5.4.5",
-        "vite": "^5.4.2"
+        "vite": "6.0.0-beta.0"
     }
 }
