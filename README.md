@@ -6,9 +6,9 @@ This plugin will significantly speed up your server rendered Vite application by
 
 This plugin is different to [vite-plugin-preload](https://www.npmjs.com/package/vite-plugin-preload) because it evaluates used modules at render time rather than including every single module in the HTML at build time.  
 
-Includes functionality similar to [loadable-components](https://loadable-components.com/) where you can create `<link rel=preload>` tags and `Link: </s.js>; rel=preloadmodule;` headers using `getLinkTags()` and `getLinkHeaders()`
+Includes functionality similar to [loadable-components](https://loadable-components.com/) where you can create `<link>` tags and `Link` headers for the rendered chunks.
 
-#### See [./playground](./playground/) for a basic setup with preloading
+#### See [`./playground`](./playground/) for a basic setup with preloading
 
 ## Explainer
 
@@ -72,7 +72,8 @@ async function handler(req, res) {
     const template = process.env.NODE_ENV === 'production' ? await fs.readFile('./dist/client/index.html', 'utf8') : undefined;
     const [head, tail] = template.split('<!-- app-root -->')
 
-    // Write a HTTP 103 Early Hint way before React even started rendering with the entry chunks which we know we will be needed by the client
+    // Write a HTTP 103 Early Hint way before React even started rendering with the entry chunks which we know we will be needed by the client.
+    // Chrome will only pick it up when running with HTTP/2 so try Firefox if you want to test it.
     res.writeEarlyHints({
         link: collector.getLinkHeaders()
     })

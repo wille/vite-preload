@@ -28,9 +28,12 @@ export function lazy<T extends ComponentType<any>>(
 export async function preloadAll() {
     // Preload all lazy components up to a depth of 3
     for (let i = 0; i < 3 && preloads.length > 0; i++) {
-        console.log('Preloading', preloads.length, 'lazy components');
         const _preloads = preloads;
         preloads = [];
+
+        if (_preloads.length === 0) {
+            return;
+        }
         await Promise.all(_preloads.map((preload) => preload()));
     }
 }
