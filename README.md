@@ -2,7 +2,7 @@
 
 # vite-preload
 
-This plugin will significantly speed up your server rendered vite application by preloading async modules and stylesheets as early as possible and help you avoiding Flash Of Unstyled Content (FOUC) by including stylesheets from async modules in the initial HTML.
+This plugin will significantly speed up your server rendered Vite application by preloading dynamically imported React components and their stylesheets as early as possible. It will also ensure that the stylesheet of the lazy component is included in the initial HTML to avoid a Flash Of Unstyled Content (FOUC).
 
 Similar to [loadable-components](https://loadable-components.com/) but built for Vite.
 
@@ -10,9 +10,9 @@ Similar to [loadable-components](https://loadable-components.com/) but built for
 
 ## Explainer
 
-Vite supports dynamic imports just fine but any lazy imported modules and its CSS imports will only be loaded once the parent module has been loaded and executed. This can lead to a Flash Of Unstyled Content (FOUC) if the async module is rendered on the server and the browser has not yet loaded the CSS.
+Any lazy imported React component and its CSS will only be loaded once the parent module has been loaded and executed. This will lead to a Flash Of Unstyled Content (FOUC) and a delay in loading the required chunks for the React client.
 
-This plugin will collect which modules are rendered on the server and help you inject `<link>` tags in the HTML `<head>` and `Link` preload headers for [103 Early Hints](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/103)
+This plugin will collect which modules are rendered on the server and help you inject `<link>` tags in the HTML `<head>` and `Link` preload headers for which you can use with  [103 Early Hints](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/103) which you can use to make the browser work before React even started rendering on the server.
 
 ## Without preloading
 
@@ -32,11 +32,9 @@ $ npm install vite-preload
 
 ### `vite.config.ts`
 
-Setup the vite plugin to collect rendered async chunks.
+Setup the Vite plugin to inject a helper function in your dynamically imported React components that will make lazy components detected on SSR.
 
-The plugin checks if any `import()` call refers to a module with a React Component as the default export and if so injects a hook `__collectModule('path/to/module')` that uses the ChunkCollector React Context to report that it was rendered.
 
-Without this plugin, we will only be able to connect scripts and CSS from the entrypoint and its static imports because we simply don't know which client chunk we render on the server.
 
 ```ts
 import preloadPlugin from 'vite-preload/plugin';
@@ -49,109 +47,66 @@ export default defineConfig({
 });
 ```
 
+
 > [!IMPORTANT]
-> Preloading does not apply in development mode but any function is safe to use. In development mode, Vite will load CSS using style tags on demand, which will always come with some Flash Of Unstyled Content (FOUC)
+> Preloading does not show up in development mode. In development mode, Vite will inject CSS using inline style tags on demand, which will always come with some Flash Of Unstyled Content (FOUC). I tried hard but I couldn't find a way to extract the style tags to inline it dev mode to avoid the flash and have a reliable server render testing experience
 
 ---
 
-### `App.tsx`
+### Setup on the server in your render handler
 
 ```tsx
-import React from 'react';
+import { ChunkCollectorContext } from 'vite-preload';
 
-// Normally the Card module will not be loaded by the browser at all until the module has loaded and rendered it
-const LazyComponent = React.lazy(() => import('./Card'));
-
-function App() {
-    return (
-        <div>
-            <React.Suspense loading={<p>Suspending...</p>}>
-                <Card />
-            </React.Suspense>
-        </div>
-    );
-}
-export default App;
-```
-
-> [!TIP]
-> If your component props changes while it's suspending/hydrating, React might [crash](https://react.dev/errors/421) or flash the suspense boundary to the user. (the `loading` prop).
->
-> It's recommended to look into other solutions like [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) or react-router [Lazy Routes](https://reactrouter.com/en/main/guides/ssr#lazy-routes) to ensure that the async component is available during hydration.
-
----
-
-### `render.tsx`
-
-```tsx
-import fs from 'node:fs/promises';
-import crypto from 'node
-import { renderToString } from 'react';
-import { createChunkCollector, ChunkCollectorContext } from 'vite-preload';
-
-async function render(req, res) {
-    // No template in dev
-    const template = process.env.NODE_ENV === 'production'
-        ? await fs.readFile('./dist/client/index.html', 'utf8')
-        : undefined;
-
+function handler(req, res) {
     const collector = createChunkCollector({
-        manifest: './dist/client/.vite/manifest.json'
-    });
+        manifest: './dist/client/.vite/manifest.json',
+        entry: 'index.html',
+    })
 
-    // TODO Just for demo purposes, you need to use a streaming API like renderToPipeableStream for suspense to work on the server
-    const html = renderToString(
+    const template = process.env.NODE_ENV === 'production' ? await fs.readFile('./dist/client/index.html', 'utf8') : undefined;
+    const [head, tail] = template.split('<!-- app-root -->')
+
+    // Write a HTTP 103 Early Hint way before React even started rendering with the entry chunks which we know we will be needed by the client
+    res.writeEarlyHints({
+        link: collector.getLinkHeaders()
+    })
+
+    const { pipe } = renderToPipeableNodeStream(
         <ChunkCollectorContext collector={collector}>
             <App />
-        </ChunkCollectorContext>
+        </ChunkCollectorContext>,
+        {
+            // onShellReady also works but it will miss chunks that React does not consider a part of the shell, like server components or lazy components on the server that has not resolved. React will always suspend and show the fallback ui for lazy components on the first server render unless you preload all lazy components using something like react-lazy-with-preload first.
+            onAllReady() {
+                const linkTags = collector.getTags();
+                const linkHeaders = collector.getLinkHeaders();
+
+                // The link header below now contains 
+                res.writeHead(200, {
+                    'content-type': 'text/html',
+                    'link': linkHeaders
+                })
+
+                // Inject <link rel=modulepreload> and <link rel=stylesheet> in the head. Without this the CSS for any lazy component would be loaded after the app has and cause a Flash of Unstyled Content (FOUC).
+                res.write(head.replace('</head>', `${linkTags}\n</head>`););
+
+                const transformStream = new Transform({
+                    transform(chunk, encoding, callback) {
+                        res.write(chunk, encoding);
+                        callback();
+                    },
+                });
+
+                pipe(transformStream)
+
+                transformStream.on('finish', () => {
+                    res.end(tail);
+                });
+            }
+        }
     );
-
-    const modules = collector.getModules();
-
-    // <link rel=modulepreload href="/assets/Card.tsx" crossorigin nonce="">
-    // <link rel=stylesheet href="/assets/Card.css" nonce="">
-    const linkTags = collector.getTags();
-
-    template = template
-        .replace('</head>', `${linkTags}\n</head>`) // Injecting in the bottom to ensure CSS ordering, entry chunk CSS should always come first in the <head>.
-        .replace('<!--html-->', html);
-        .replaceAll('%NONCE%', 'Your csp nonce');
-
-    const linkHeaders = collector.getLinkHeaders();
-    // Link: </assets/Card.tsx>; rel=modulepreload; crossorigin
-    // Link: </assets/Card.css>; rel=preload; as=style; crossorigin
-    res.append('link', linkHeaders);
-
-    // Services like cloudflare will automatically setup HTTP 103 Early Hints but you can also do it yourself...
-    // res.writeEarlyHints...
-
-    res.end(template);
 }
-```
-
-### Example HTTP response with `Link` headers and HTML stylesheets/preloads
-
-```html
-HTTP/1.1 200
-content-type: text/html; charset=utf-8
-link: </assets/index-CG7aErjv.js>; rel=modulepreload; crossorigin
-link: </assets/index-Be6T33si.css>; rel=preload; as=style; crossorigin
-link: </assets/Card.tsx>; rel=modulepreload; crossorigin
-link: </assets/Card.css>; rel=preload; as=style; crossorigin
-
-<html>
-    <head>
-        ...
-        <script type="module" crossorigin src="/assets/index-CG7aErjv.js"></script>
-        <link rel=modulepreload href="/assets/Card.tsx" crossorigin >
-        <link rel="stylesheet" crossorigin href="/assets/index-Be6T33si.css">
-        <link rel=stylesheet href="/assets/Card.css" crossorigin >
-        ...
-    </head>
-    <body>
-        ...
-    </body>
-</html>
 ```
 
 ## Migrating from `loadable-components`
@@ -245,6 +200,102 @@ async function main() {
         document.getElementById('root')
     )
 }
+```
+
+# How it works
+
+## Plugin
+The plugin will inject a hook in every dynamically imported React component. This is because we need to map the module id to the corresponding client chunks from the generated Vite [manifest.json](https://vitejs.dev/guide/backend-integration).
+
+
+Below is what the plugin would inject in a module imported  using `React.lazy(() => import('./lazy-component'))`:
+```ts
+// src/lazy-component.tsx
+import { __collectModule } from 'vite-preload/__internal';
+import styles from './lazy-component.module.css';
+export default function Lazy() {
+    __collectModule('src/lazy-component.ts'); // Injected by the plugin
+    return <div className={styles.div}>Hi</div>
+}
+```
+
+The manifest entry for this chunk would look similar to
+
+```json
+"src/lazy-component.tsx": {
+    "file": "assets/lazy-component-CbXeDPe5.js",
+    "name": "lazy-component",
+    "src": "src/lazy-component.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+        "_vendor-1b2b3c4d.js",
+    ],
+    "css": [
+        "assets/lazy-component-DHcjhLCQ.css"
+    ]
+},
+```
+
+
+## Server
+The React server uses the context provider to catch these hook calls and map them to the corresponding client chunks extracted from the manifest
+
+```tsx
+import { ChunkCollectorContext } from 'vite-preload';
+
+const collector = createChunkCollector({
+    manifest: './dist/client/.vite/manifest.json',
+    entry: 'index.html',
+});
+
+renderToPipeableNodeStream(
+    <ChunkCollectorContext collector={collector}>
+        <App />
+    </ChunkCollectorContext>,
+    {
+        onAllReady() {
+            collector.getChunks()
+            // app.94184122.js
+            // app.94184122.css
+            // lazy-module.94184122.js
+            // lazy-module.94184122.css
+        }
+    }
+)
+```
+
+
+## Example HTTP response
+
+1. The 103 Early Hint will preload the entry chunks because they are known to be needed by the client. It's sent before React starts doing anything.
+2. The 200 OK response headers also contains the chunks of the lazy JS and CSS that were rendered.
+3. The head of the document uses the stylesheets, executes the primary module, and leaves the async modules as preloads for the browser to instantly use when a dynamic import is used.
+
+```html
+HTTP/2 103
+link: </assets/index-CG7aErjv.js>; rel=modulepreload; crossorigin
+link: </assets/index-Be6T33si.css>; rel=preload; as=style; crossorigin
+
+HTTP/2 200
+content-type: text/html; charset=utf-8
+link: </assets/index-CG7aErjv.js>; rel=preload; as=module; crossorigin
+link: </assets/index-Be6T33si.css>; rel=preload; as=style; crossorigin
+link: </assets/Card.tsx>; rel=modulepreload; crossorigin
+link: </assets/Card.css>; rel=preload; as=style; crossorigin
+
+<html>
+    <head>
+        ...
+        <script type="module" crossorigin src="/assets/index-CG7aErjv.js"></script>
+        <link rel=modulepreload href="/assets/Card.tsx" crossorigin>
+        <link rel="stylesheet" crossorigin href="/assets/index-Be6T33si.css">
+        <link rel=stylesheet href="/assets/Card.css" crossorigin>
+        ...
+    </head>
+    <body>
+        ...
+    </body>
+</html>
 ```
 
 ### Read more in the Vite documentation
