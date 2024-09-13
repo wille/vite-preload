@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises';
 import express from 'express';
-import { Transform, Writable } from 'node:stream';
+import { Transform } from 'node:stream';
+import { setTimeout } from 'node:timers/promises';
+import crypto from 'node:crypto';
 
-import createChunkCollector from '../dist/collector.js';
+import { createChunkCollector } from '../dist/collector.js';
 
 // Constants
 const isProduction = process.env.NODE_ENV === 'production';
@@ -56,66 +58,82 @@ app.use('*', async (req, res) => {
             render = (await import('./dist/server/entry-server.js')).render;
         }
 
+        const nonce = crypto.randomBytes(16).toString('base64');
+        res.setHeader(
+            'Content-Security-Policy',
+            `script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}';`
+        );
+
         let didError = false;
 
-        // const { pipe, abort } = render(url, ssrManifest, {
-        //   onShellError() {
-        //     res.status(500)
-        //     res.set({ 'Content-Type': 'text/html' })
-        //     res.send('<h1>Something went wrong</h1>')
-        //   },
-        //   onShellReady() {
-        //     res.status(didError ? 500 : 200)
-        //     res.set({ 'Content-Type': 'text/html' })
-
-        //     const transformStream = new Transform({
-        //       transform(chunk, encoding, callback) {
-        //         res.write(chunk, encoding)
-        //         callback()
-        //       }
-        //     })
-
-        //     const [htmlStart, htmlEnd] = template.split(`<!--app-html-->`)
-
-        //     res.write(htmlStart)
-
-        //     transformStream.on('finish', () => {
-        //       res.end(htmlEnd)
-        //     })
-
-        //     pipe(transformStream)
-        //   },
-        //   onError(error) {
-        //     didError = true
-        //     console.error(error)
-        //   }
-        // })
         const collector = createChunkCollector({
             manifest,
             preloadAssets: true,
             preloadFonts: true,
-            nonce: '%NONCE%',
+            nonce,
         });
 
-        const html = await renderStream(render, collector);
-
-        const modules = collector.getSortedModules();
-
-        const DISABLE_PRELOADING = false;
-
-        if (!DISABLE_PRELOADING) {
-            console.log('Modules used', modules);
-            res.append('link', collector.getLinkHeaders());
+        // Not gonna work locally in Chrome unless you have a HTTP/2 supported proxy in front, use Firefox to pick up 103 Early Hints over HTTP/1.1 without TLS
+        // https://developer.chrome.com/docs/web-platform/early-hints
+        // Also services like cloudflare already handles this for you
+        // https://developers.cloudflare.com/cache/advanced-configuration/early-hints/
+        if (req.headers['sec-fetch-mode'] === 'navigate') {
+            res.writeEarlyHints({
+                link: collector.getLinkHeaders(),
+            });
+            await setTimeout(2000);
         }
 
-        const tags = DISABLE_PRELOADING ? '' : collector.getTags(false);
+        const [head, rest] = template.split(`<!--app-html-->`);
 
-        res.write(
-            template
-                .replace('</head>', `${tags}\n</head>`)
-                .replace('<!--app-html-->', html)
-        );
-        res.end();
+        const { pipe } = render(url, collector, {
+            nonce,
+            onShellError() {
+                res.status(500);
+                res.set({ 'Content-Type': 'text/html' });
+                res.send('<h1>Something went wrong</h1>');
+            },
+            onShellReady() {
+                console.log('onShellReady');
+
+                res.status(didError ? 500 : 200);
+                res.set('Content-Type', 'text/html');
+                res.append('link', collector.getLinkHeaders());
+
+                const modules = collector.getSortedModules();
+
+                console.log('Modules used', modules);
+
+                const tags = collector.getTags();
+
+                res.write(
+                    head
+                        .replaceAll('%NONCE%', nonce)
+                        .replace('</head>', `${tags}\n</head>`)
+                );
+
+                const transformStream = new Transform({
+                    transform(chunk, encoding, callback) {
+                        res.write(chunk, encoding);
+                        console.log('Chunk', chunk.length);
+                        callback();
+                    },
+                });
+
+                transformStream.on('finish', () => {
+                    res.end(rest);
+                });
+
+                pipe(transformStream);
+            },
+            onError(error) {
+                didError = true;
+                console.error(error);
+            },
+            onAllReady() {
+                console.log('onAllReady');
+            },
+        });
     } catch (e) {
         vite?.ssrFixStacktrace(e);
         console.log(e.stack);
@@ -127,50 +145,3 @@ app.use('*', async (req, res) => {
 app.listen(port, () => {
     console.log(`Server started at http://localhost:${port}`);
 });
-
-async function renderStream(render, collector) {
-    const start = performance.now();
-    let html = '';
-    const stream = new Writable({
-        write(chunk, encoding, callback) {
-            html += chunk.toString();
-            console.log(
-                'chunk',
-                chunk.toString().length,
-                performance.now() - start
-            );
-            callback();
-        },
-    });
-
-    const renderPromise = new Promise((resolve, reject) => {
-        stream.on('finish', () => {
-            resolve();
-        });
-        stream.on('error', (e) => {
-            reject(e);
-        });
-
-        const { pipe } = render('', collector, {
-            onShellReady() {
-                console.log('shellready', performance.now() - start);
-            },
-            onShellError(error) {
-                console.error('error', error);
-                reject(error);
-            },
-            onAllReady() {
-                console.log('allready', performance.now() - start);
-            },
-            onError(error) {
-                console.error('error', error);
-                reject(error);
-            },
-        });
-
-        pipe(stream);
-    });
-
-    await renderPromise;
-    return html;
-}

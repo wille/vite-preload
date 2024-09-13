@@ -35,6 +35,7 @@ export class ChunkCollector {
     ) {
         this.__context_collectModuleId =
             this.__context_collectModuleId.bind(this);
+        this.getChunks = this.getChunks.bind(this);
         this.getSortedModules = this.getSortedModules.bind(this);
         this.getTags = this.getTags.bind(this);
         this.getLinkHeader = this.getLinkHeader.bind(this);
@@ -52,7 +53,15 @@ export class ChunkCollector {
         collectModules(moduleId, this);
     }
 
+    /**
+     * @deprecated - use getChunks instead
+     */
     getSortedModules() {
+        const modules = Array.from(this.preloads.values());
+        return sortPreloads(modules);
+    }
+
+    getChunks() {
         const modules = Array.from(this.preloads.values());
         return sortPreloads(modules);
     }
@@ -66,7 +75,7 @@ export class ChunkCollector {
      * See https://vitejs.dev/guide/backend-integration for using your own template
      */
     getTags({ includeEntry }: { includeEntry?: boolean } = {}): string {
-        const modules = this.getSortedModules();
+        const modules = this.getChunks();
 
         return modules
             .filter((m) => includeEntry || !m.isEntry)
@@ -82,7 +91,7 @@ export class ChunkCollector {
      * @example res.setHeader('link', collector.getLinkHeader());
      */
     getLinkHeader(): string {
-        const modules = this.getSortedModules();
+        const modules = this.getChunks();
         return createLinkHeader(modules);
     }
 
@@ -92,7 +101,7 @@ export class ChunkCollector {
      * @example res.append('link', collector.getLinkHeaders());
      */
     getLinkHeaders(): string[] {
-        return this.getSortedModules()
+        return this.getChunks()
             .map(createSingleLinkHeader)
             .filter((x) => x != null);
     }
@@ -183,8 +192,6 @@ export function createChunkCollector(options: CollectorOptions) {
     collector.nonce = options.nonce!;
     return collector;
 }
-
-export default createChunkCollector;
 
 /*
   url: '/src/pages/Browse/index.ts',
