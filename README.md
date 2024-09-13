@@ -4,7 +4,9 @@
 
 This plugin will significantly speed up your server rendered Vite application by preloading dynamically imported React components and their stylesheets as early as possible. It will also ensure that the stylesheet of the lazy component is included in the initial HTML to avoid a Flash Of Unstyled Content (FOUC).
 
-Similar to [loadable-components](https://loadable-components.com/) but built for Vite.
+This plugin is different to [vite-plugin-preload](https://www.npmjs.com/package/vite-plugin-preload) because it evaluates used modules at render time rather than including every single module in the HTML at build time.  
+
+Includes functionality similar to [loadable-components](https://loadable-components.com/) where you can create `<link rel=preload>` tags and `Link: </s.js>; rel=preloadmodule;` headers using `getLinkTags()` and `getLinkHeaders()`
 
 #### See [./playground](./playground/) for a basic setup with preloading
 
@@ -56,9 +58,12 @@ export default defineConfig({
 ### Setup on the server in your render handler
 
 ```tsx
-import { ChunkCollectorContext } from 'vite-preload';
+import { ChunkCollectorContext, preloadAll } from 'vite-preload';
 
-function handler(req, res) {
+async function handler(req, res) {
+    // Preload all async chunks on the server otherwise the first render will trigger the suspense fallback because the lazy import has not been resolved
+    await preloadAll();
+
     const collector = createChunkCollector({
         manifest: './dist/client/.vite/manifest.json',
         entry: 'index.html',
@@ -109,9 +114,32 @@ function handler(req, res) {
 }
 ```
 
+## Options
+
+`createChunkCollector(options)`
+- `manifest`: string/object - path to the vite manifest or the manifest object (defaults to `./dist/client/.vite/manifest.json`)
+- `entry`: string - entry name, defaults to `index.html`
+- `preloadFonts`: true/false - Include fonts, true by default
+- `preloadAssets`: true/false - Include assets like images and fonts
+
+`ChunkCollector`
+- `getTags()`: Returns a string with `<link>` tags to be included in the HTML head
+- `getLinkHeaders()`: Returns a list with `Link` header values
+
 ## Migrating from `loadable-components`
 
-Replace all `loadable(() => import('./module'))` with `React.lazy(() => import('./module'))` and evaluate if it performs well enough for your use case.
+Replace all 
+
+```tsx
+import loadable from '@loadable/component'
+loadable(() => import('./module'))
+```
+with
+```tsx
+import { lazy } from 'vite-preload'
+lazy(() => import('./module'))
+```
+and evaluate if it performs well enough for your use case.
 
 Look into the examples below for other ways to optimize your app.
 
@@ -119,8 +147,11 @@ Look into the examples below for other ways to optimize your app.
 
 React.lazy works with Server Rendering using the React Streaming APIs like [renderToPipeableStream](https://react.dev/reference/react-dom/server/renderToPipeableStream)
 
+vite-preload exports a `React.lazy` wrapper that supports preloading using `Component.preload()` and `preloadAll()`
+
 ```tsx
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazy, preloadAll } from 'vite-preload';
 
 const Card = lazy(() => import('./Card'));
 
@@ -135,11 +166,13 @@ function App() {
 }
 ```
 
+### Server 
+
 > [!NOTE]
 > React.lazy has some undeterministic behaviour in server rendering.
 >
-> - The first render on the server will always trigger the suspense fallback. One solution to fix this is to use something similar to [react-lazy-with-preload](https://npmjs.com/packages/react-lazy-with-preload) and .preload() every single lazy import on the server
-> - Larger components in large projects that takes time to load will trigger the suspense fallback on the client side, even if the component is server rendered. This might be avoided by preloading all async routes before hydration and skipping the top level Suspense boundary.
+> - The first render on the server will always trigger the suspense fallback. Use `await preloadAll()` on the server to preload all async components before rendering the app.
+> - Larger components in large projects that takes time to load will trigger the suspense fallback on the client side, even if the component is server rendered. This might be avoided by preloading all async routes before hydration with `await preloadAll()` or skipping the top level Suspense boundary.
 
 
 ## Usage with `react-router`
@@ -233,7 +266,7 @@ The manifest entry for this chunk would look similar to
     "css": [
         "assets/lazy-component-DHcjhLCQ.css"
     ]
-},
+}
 ```
 
 
@@ -241,12 +274,15 @@ The manifest entry for this chunk would look similar to
 The React server uses the context provider to catch these hook calls and map them to the corresponding client chunks extracted from the manifest
 
 ```tsx
-import { ChunkCollectorContext } from 'vite-preload';
+import { ChunkCollectorContext, preloadAll } from 'vite-preload';
 
 const collector = createChunkCollector({
     manifest: './dist/client/.vite/manifest.json',
     entry: 'index.html',
 });
+
+// Preload all async components before rendering the app to avoid the first render to trigger the suspense fallback
+await preloadAll();
 
 renderToPipeableNodeStream(
     <ChunkCollectorContext collector={collector}>

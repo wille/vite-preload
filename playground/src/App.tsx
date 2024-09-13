@@ -1,17 +1,18 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import reactLogo from './assets/react.svg';
 import './App.css';
+import { lazy } from '../../src';
 
 function slowImport(promise: () => Promise<any>) {
     return () => {
         return new Promise<any>((resolve) => {
-            setTimeout(() => resolve(promise()), 2000);
+            setTimeout(() => resolve(promise()), 1000);
         });
     };
 }
 
 // Works also with SSR as expected
-const Card = React.lazy(slowImport(() => import('./Card')));
+const Card = lazy(slowImport(() => import('./Card')));
 
 export default function App() {
     return (

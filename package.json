@@ -52,7 +52,8 @@
     "@babel/parser": "^7.25.0",
     "@babel/traverse": "^7.25.0",
     "@babel/types": "^7.25.0",
-    "mime": "^4"
+    "mime": "^4",
+    "react-lazy-with-preload": "^2.2.1"
   },
   "keywords": [
     "react",

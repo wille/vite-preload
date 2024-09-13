@@ -5,12 +5,15 @@ import {
 } from 'react-dom/server';
 import App from './App';
 import { ChunkCollector, ChunkCollectorContext } from '../../src';
+import { preloadAll } from '../../src';
 
-export function render(
+export async function render(
     _url: string,
     collector: ChunkCollector,
     options?: RenderToPipeableStreamOptions
 ) {
+    await preloadAll();
+
     return renderToPipeableStream(
         <React.StrictMode>
             <ChunkCollectorContext collector={collector}>

@@ -81,12 +81,12 @@ app.use('*', async (req, res) => {
             res.writeEarlyHints({
                 link: collector.getLinkHeaders(),
             });
-            await setTimeout(2000);
+            await setTimeout(1000);
         }
 
         const [head, rest] = template.split(`<!--app-html-->`);
 
-        const { pipe } = render(url, collector, {
+        const { pipe } = await render(url, collector, {
             nonce,
             onShellError() {
                 res.status(500);
