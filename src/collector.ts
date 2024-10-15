@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+
 import {
     createHtmlTag,
     createLinkHeader,
@@ -6,7 +8,6 @@ import {
     Preload,
     sortPreloads,
 } from './utils';
-import mime from 'mime';
 
 interface ManifestChunk {
     src: string;
@@ -260,17 +261,24 @@ function collectModules(
 
         // Assets such as svg, png imports
         for (const asset of chunk.assets || []) {
-            const mimeType = mime.getType(asset);
+            const ext = path.extname(asset).substring(1);
+            let as;
+            let mimeType;
 
-            if (!mimeType) continue;
-
-            const as = mimeType.split('/')[0];
-
-            switch (as) {
-                case 'image':
+            switch (ext) {
+                case 'png':
+                case 'jpg':
+                case 'webp':
+                case 'svg':
+                    as = 'image';
+                    mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
                     if (preloadAssets) break;
                     else continue;
-                case 'font':
+                case 'woff2':
+                case 'woff':
+                case 'ttf':
+                    as = 'font';
+                    mimeType = `font/${ext}`;                
                     if (preloadFonts) break;
                     else continue;
             }
