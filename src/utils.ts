@@ -12,6 +12,8 @@ export interface Preload {
 
     comment?: string;
     isEntry?: boolean;
+
+    asyncScript?: boolean;
 }
 
 export function createHtmlTag({
@@ -21,6 +23,7 @@ export function createHtmlTag({
     type,
     comment,
     nonce,
+    asyncScript,
 }: Preload) {
     let tag = comment ? `<!-- ${comment} -->\n` : '';
 
@@ -34,7 +37,7 @@ export function createHtmlTag({
             tag += `<link rel="modulepreload" href="/${href}" crossorigin${nonceAttr} />`;
             break;
         case 'module':
-            tag += `<script type="module" src="/${href}" crossorigin${nonceAttr}></script>`;
+            tag += `<script type="module"${asyncScript ? ' async' : ''} src="/${href}" crossorigin${nonceAttr}></script>`;
             break;
         case 'preload':
             const crossorigin = as === 'font' || as === 'fetch';
