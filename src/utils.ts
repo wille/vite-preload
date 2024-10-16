@@ -79,15 +79,16 @@ function linkPriority(module: Preload) {
     switch (module.rel) {
         // Stylesheets have the 'Highest' priority in Chrome
         case 'stylesheet':
-            return 4;
+            return 5;
         // <script> and <link rel=modulepreload> have the 'High' priority
         case 'module':
             return 3;
         case 'modulepreload':
             return 2;
         case 'preload':
+            // Load fonts just below stylesheets. If we don't, there is a higher risk of that the text will flash on the site
             if (module.as === 'font') {
-                return 1;
+                return 4;
             }
             return 0;
         default:

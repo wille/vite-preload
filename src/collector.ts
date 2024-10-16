@@ -78,15 +78,15 @@ export class ChunkCollector {
     }: {
         /**
          * Will include the entry <script module=""> and entry stylesheets tags.
-         * 
+         *
          * If you are using the default Vite settings and having vite transform your index.html
          * as build time, then the entry tags are already included in the template.
          */
-        includeEntry?: boolean,
+        includeEntry?: boolean;
 
         /**
          * Set the `async` attribute on the entry <script module=""> tag.
-         * 
+         *
          * This requires you to control template generation and add the <script module async> tag to the end of the <body>
          */
         asyncScript?: boolean;
@@ -95,7 +95,7 @@ export class ChunkCollector {
 
         return modules
             .filter((m) => includeEntry || !m.isEntry)
-            .map(m => createHtmlTag({ ...m, asyncScript }))
+            .map((m) => createHtmlTag({ ...m, asyncScript }))
             .filter((x) => x != null)
             .join('\n');
     }
@@ -293,7 +293,7 @@ function collectModules(
                 case 'woff':
                 case 'ttf':
                     as = 'font';
-                    mimeType = `font/${ext}`;                
+                    mimeType = `font/${ext}`;
                     if (preloadFonts) break;
                     else continue;
             }
