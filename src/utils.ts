@@ -97,7 +97,7 @@ function linkPriority(module: Preload) {
 }
 
 export function sortPreloads(modules: Preload[]) {
-    return modules.toSorted((a, b) => {
+    return [...modules].sort((a, b) => {
         return linkPriority(b) - linkPriority(a);
     });
 }
