@@ -23,7 +23,7 @@ export function lazy<T extends ComponentType<any>>(
 /**
  * Preload all detected lazy() components.
  *
- * Should be used on the server to resolve all lazy imports before rendering to avoid the Suspense loading state to be triggered on the first render.
+ * Can be used on the server to resolve all lazy imports before rendering to avoid the Suspense loading state to be triggered on the first render.
  */
 export async function preloadAll() {
     // Preload all lazy components up to a depth of 3

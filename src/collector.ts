@@ -43,6 +43,7 @@ export class ChunkCollector {
         this.getLinkHeaders = this.getLinkHeaders.bind(this);
 
         // Load the entry modules
+        collectModules('vite/legacy-polyfills', this);
         collectModules(entry, this);
     }
 
@@ -88,6 +89,7 @@ export class ChunkCollector {
          * Set the `async` attribute on the entry <script module=""> tag.
          *
          * This requires you to control template generation and add the <script module async> tag to the end of the <body>
+         * or only hydrate React when DOMContentLoaded has fired.
          */
         asyncScript?: boolean;
     } = {}): string {
@@ -249,7 +251,9 @@ function collectModules(
             continue;
         }
 
-        const isPrimaryModule = chunk.src === entry;
+        const isPrimaryModule =
+            chunk.src === entry || chunk.src === 'vite/legacy-polyfills';
+
         preloads.set(chunk.file, {
             // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
             rel: isPrimaryModule ? 'module' : 'modulepreload',

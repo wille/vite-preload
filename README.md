@@ -4,6 +4,8 @@
 
 This plugin will significantly speed up your server rendered Vite application by preloading dynamically imported React components and their stylesheets as early as possible. It will also ensure that the stylesheet of the lazy component is included in the initial HTML to avoid a Flash Of Unstyled Content (FOUC).
 
+Read more about [Nested modules and loading performance](https://web.dev/articles/script-evaluation-and-long-tasks#trade-offs_and_considerations)
+
 This plugin is different to [vite-plugin-preload](https://www.npmjs.com/package/vite-plugin-preload) because it evaluates used modules at render time rather than including every single module in the HTML at build time.  
 
 Includes functionality similar to [loadable-components](https://loadable-components.com/) where you can create `<link>` tags and `Link` headers for the rendered chunks.
