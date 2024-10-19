@@ -28,6 +28,7 @@ export class ChunkCollector {
 
     preloadFonts = true;
     preloadAssets = false;
+    asyncScript = false;
     nonce: string;
 
     constructor(
@@ -75,7 +76,6 @@ export class ChunkCollector {
      */
     getTags({
         includeEntry,
-        asyncScript,
     }: {
         /**
          * Will include the entry <script module=""> and entry stylesheets tags.
@@ -84,20 +84,12 @@ export class ChunkCollector {
          * as build time, then the entry tags are already included in the template.
          */
         includeEntry?: boolean;
-
-        /**
-         * Set the `async` attribute on the entry <script module=""> tag.
-         *
-         * This requires you to control template generation and add the <script module async> tag to the end of the <body>
-         * or only hydrate React when DOMContentLoaded has fired.
-         */
-        asyncScript?: boolean;
     } = {}): string {
         const modules = this.getChunks();
 
         return modules
             .filter((m) => includeEntry || !m.isEntry)
-            .map((m) => createHtmlTag({ ...m, asyncScript }))
+            .map(createHtmlTag)
             .filter((x) => x != null)
             .join('\n');
     }
@@ -160,6 +152,16 @@ interface CollectorOptions {
      * Nonce for scripts and stylesheets
      */
     nonce?: string;
+
+    /**
+     * Set the `async` attribute on the entry <script module=""> tag.
+     *
+     * This requires you to control template generation and add the <script module async> tag to the end of the <body>
+     * or only hydrate React when DOMContentLoaded has fired.
+     *
+     * The polyfill entry script will not be async.
+     */
+    asyncScript?: boolean;
 }
 
 let manifestFromFile: Manifest;
@@ -208,6 +210,7 @@ export function createChunkCollector(options: CollectorOptions) {
     collector.preloadAssets = options.preloadAssets || false;
     collector.preloadFonts = options.preloadFonts ?? true;
     collector.nonce = options.nonce!;
+    collector.asyncScript = options.asyncScript || false;
     return collector;
 }
 
@@ -236,10 +239,12 @@ function collectModules(
         preloadFonts,
         preloads,
         nonce,
+        asyncScript,
     }: ChunkCollector
 ) {
     // The reported module ID is not in it's own chunk
     if (!manifest[moduleId] || preloads.has(moduleId)) {
+        console.log('Module ID is not in its own chunk', moduleId);
         return preloads;
     }
 
@@ -251,16 +256,19 @@ function collectModules(
             continue;
         }
 
-        const isPrimaryModule =
-            chunk.src === entry || chunk.src === 'vite/legacy-polyfills';
+        const isPolyfill = chunk.src === 'vite/legacy-polyfills';
+        const isPrimaryModule = chunk.src === entry;
 
         preloads.set(chunk.file, {
             // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
-            rel: isPrimaryModule ? 'module' : 'modulepreload',
+            rel: isPrimaryModule || isPolyfill ? 'module' : 'modulepreload',
             href: chunk.file,
             comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
             isEntry: chunk.isEntry,
             nonce,
+
+            // The polyfill chunk should not be async and it should run before the entry chunk
+            asyncScript: asyncScript && !isPolyfill,
         });
 
         for (const cssFile of chunk.css || []) {
@@ -318,7 +326,7 @@ function collectModules(
 function collectChunksRecursively(
     manifest: Manifest,
     moduleId: string,
-    chunks = new Map<string, ManifestChunk>(),
+    chunks: Map<string, ManifestChunk>,
     isEntry?: boolean
 ) {
     const chunk = manifest[moduleId];
@@ -348,6 +356,4 @@ function collectChunksRecursively(
             isEntry || chunk.isEntry
         );
     }
-
-    return chunks;
 }

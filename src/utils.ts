@@ -79,16 +79,18 @@ function linkPriority(module: Preload) {
     switch (module.rel) {
         // Stylesheets have the 'Highest' priority in Chrome
         case 'stylesheet':
-            return 5;
+            return 10;
         // <script> and <link rel=modulepreload> have the 'High' priority
         case 'module':
-            return 3;
+            // Always load blocking scripts before the async script.
+            // This is because if your entry script is async, your polyfill module which is not async will need to be executed first.
+            return module.asyncScript ? 4 : 5;
         case 'modulepreload':
             return 2;
         case 'preload':
             // Load fonts just below stylesheets. If we don't, there is a higher risk of that the text will flash on the site
             if (module.as === 'font') {
-                return 4;
+                return 9;
             }
             return 0;
         default:
