@@ -26,14 +26,13 @@ export class ChunkCollector {
     modulesIds = new Set<string>();
     preloads = new Map<string, Preload>();
 
-    preloadFonts = true;
-    preloadAssets = false;
-    asyncScript = false;
-    nonce: string;
-
     constructor(
         public manifest: Manifest,
-        public entry: string
+        public entry: string,
+        public preloadFonts = true,
+        public preloadAssets = false,
+        public nonce = '',
+        public asyncScript = false
     ) {
         this.__context_collectModuleId =
             this.__context_collectModuleId.bind(this);
@@ -206,11 +205,14 @@ export function createChunkCollector(options: CollectorOptions) {
         }
     }
 
-    const collector = new ChunkCollector(manifest, entry);
-    collector.preloadAssets = options.preloadAssets || false;
-    collector.preloadFonts = options.preloadFonts ?? true;
-    collector.nonce = options.nonce!;
-    collector.asyncScript = options.asyncScript || false;
+    const collector = new ChunkCollector(
+        manifest,
+        entry,
+        options.preloadFonts,
+        options.preloadAssets,
+        options.nonce,
+        options.asyncScript
+    );
     return collector;
 }
 
@@ -243,8 +245,8 @@ function collectModules(
     }: ChunkCollector
 ) {
     // The reported module ID is not in it's own chunk
+    // Possible cause for the missing module in the manifest is build.rollupOptions.output.experimentalMinChunkSize
     if (!manifest[moduleId] || preloads.has(moduleId)) {
-        console.log('Module ID is not in its own chunk', moduleId);
         return preloads;
     }
 
