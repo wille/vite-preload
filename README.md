@@ -53,7 +53,11 @@ export default defineConfig({
 
 
 > [!IMPORTANT]
-> Preloading does not show up in development mode. In development mode, Vite will inject CSS using inline style tags on demand, which will always come with some Flash Of Unstyled Content (FOUC). I tried hard but I couldn't find a way to extract the style tags to inline it dev mode to avoid the flash and have a reliable server render testing experience
+> Preloading does not show up in development mode. In development mode, Vite will inject CSS using inline style tags on demand, which will always come with some Flash Of Unstyled Content (FOUC). [Read more](https://github.com/wille/vite-preload/pull/1)
+
+> [!NOTE]
+> If some of your modules does not get preloaded, make sure `build.rollupOptions.output.experimentalMinChunkSize` is not set. Rollup might merge chunks so they are not mapped in the manifest and can't be found when calculating what chunks to preload.
+
 
 ---
 
