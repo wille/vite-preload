@@ -64,7 +64,7 @@ export default defineConfig({
 ### Setup on the server in your render handler
 
 ```tsx
-import { ChunkCollectorContext, preloadAll } from 'vite-preload';
+import { ChunkCollectorContext, createChunkCollector, preloadAll } from 'vite-preload';
 
 async function handler(req, res) {
     // Preload all async chunks on the server otherwise the first render will trigger the suspense fallback because the lazy import has not been resolved
