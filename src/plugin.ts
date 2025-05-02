@@ -1,5 +1,5 @@
 import { parse } from '@babel/parser';
-import _traverse from '@babel/traverse';
+import _traverse, { NodePath } from '@babel/traverse';
 import _generate from '@babel/generator';
 import * as t from '@babel/types';
 import path from 'node:path';
@@ -130,16 +130,18 @@ export default function preloadPlugin({
                             const binding = path.scope.getBinding(
                                 declaration.name
                             );
-                            if (
-                                binding &&
-                                isReactFunctionComponent(binding.path.node)
-                            ) {
-                                injectImport(
-                                    ast,
-                                    __internal_importHelperModuleName
-                                );
-                                injectHook(binding.path, relative);
-                                injected = true;
+                            if (binding) {
+                                // Right here we need to check if the binding is a declarator for the ArrowFunctionExpression. 
+                                // This code creates the correct NodePath for the if statement and the injectHook function.
+                                const expressionPath = t.isVariableDeclarator(binding.path.node) ? (binding.path as NodePath<t.VariableDeclarator>).get('init') : binding.path;
+                                if (expressionPath.node && isReactFunctionComponent(expressionPath.node)) {
+                                    injectImport(
+                                        ast,
+                                        __internal_importHelperModuleName
+                                    );
+                                    injectHook(expressionPath as NodePath, relative);
+                                    injected = true;
+                                }
                             }
                         }
                     },
@@ -176,7 +178,7 @@ export default function preloadPlugin({
     };
 }
 
-function injectHook(path, arg) {
+function injectHook(path: NodePath, arg: string) {
     if (
         t.isFunctionDeclaration(path.node) ||
         t.isArrowFunctionExpression(path.node)
@@ -191,7 +193,18 @@ function injectHook(path, arg) {
             ])
         );
 
-        path.get('body').unshiftContainer('body', hookCall);
+        const bodyList = path.get('body');
+        const body = Array.isArray(bodyList) ? bodyList[0] : bodyList;
+        // While function declarations only have a block statement as body,
+        // arrow functions allow both.
+        if (t.isBlockStatement(body.node)) {
+            (body as NodePath<t.BlockStatement>).unshiftContainer('body', hookCall);
+        } else if (t.isExpression(body.node)) {
+            path.set("body", t.blockStatement([
+                hookCall,
+                t.returnStatement(body.node)
+            ]));
+        }
     }
 }
 
@@ -221,7 +234,7 @@ function injectImport(ast, importHelper) {
     }
 }
 
-function isReactFunctionComponent(node) {
+function isReactFunctionComponent(node: t.Node) {
     return (
         t.isFunctionDeclaration(node) ||
         t.isFunctionExpression(node) ||
