@@ -17,6 +17,6 @@ jobs:
       - name: Test
         run: npm test
       - name: Format
-        run: npx prettier --check ./src ./playground
+        run: npm run format
       - name: Build
         run: npm run build

@@ -131,15 +131,29 @@ export default function preloadPlugin({
                                 declaration.name
                             );
                             if (binding) {
-                                // Right here we need to check if the binding is a declarator for the ArrowFunctionExpression. 
+                                // Right here we need to check if the binding is a declarator for the ArrowFunctionExpression.
                                 // This code creates the correct NodePath for the if statement and the injectHook function.
-                                const expressionPath = t.isVariableDeclarator(binding.path.node) ? (binding.path as NodePath<t.VariableDeclarator>).get('init') : binding.path;
-                                if (expressionPath.node && isReactFunctionComponent(expressionPath.node)) {
+                                const expressionPath = t.isVariableDeclarator(
+                                    binding.path.node
+                                )
+                                    ? (
+                                          binding.path as NodePath<t.VariableDeclarator>
+                                      ).get('init')
+                                    : binding.path;
+                                if (
+                                    expressionPath.node &&
+                                    isReactFunctionComponent(
+                                        expressionPath.node
+                                    )
+                                ) {
                                     injectImport(
                                         ast,
                                         __internal_importHelperModuleName
                                     );
-                                    injectHook(expressionPath as NodePath, relative);
+                                    injectHook(
+                                        expressionPath as NodePath,
+                                        relative
+                                    );
                                     injected = true;
                                 }
                             }
@@ -198,12 +212,15 @@ function injectHook(path: NodePath, arg: string) {
         // While function declarations only have a block statement as body,
         // arrow functions allow both.
         if (t.isBlockStatement(body.node)) {
-            (body as NodePath<t.BlockStatement>).unshiftContainer('body', hookCall);
+            (body as NodePath<t.BlockStatement>).unshiftContainer(
+                'body',
+                hookCall
+            );
         } else if (t.isExpression(body.node)) {
-            path.set("body", t.blockStatement([
-                hookCall,
-                t.returnStatement(body.node)
-            ]));
+            path.set(
+                'body',
+                t.blockStatement([hookCall, t.returnStatement(body.node)])
+            );
         }
     }
 }
