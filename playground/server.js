@@ -86,6 +86,16 @@ app.use('*', async (req, res) => {
 
         const [head, rest] = template.split(`<!--app-html-->`);
 
+        let body = '';
+
+        const transformStream = new Transform({
+            transform(chunk, encoding, callback) {
+                body += chunk.toString();
+                console.log('Chunk', chunk.length);
+                callback();
+            },
+        });
+
         const { pipe } = await render(url, collector, {
             nonce,
             onShellError() {
@@ -95,36 +105,6 @@ app.use('*', async (req, res) => {
             },
             onShellReady() {
                 console.log('onShellReady');
-
-                res.status(didError ? 500 : 200);
-                res.set('Content-Type', 'text/html');
-                res.append('link', collector.getLinkHeaders());
-
-                const modules = collector.getSortedModules();
-
-                console.log('Modules used', modules);
-
-                const tags = collector.getTags();
-
-                res.write(
-                    head
-                        .replaceAll('%NONCE%', nonce)
-                        .replace('</head>', `${tags}\n</head>`)
-                );
-
-                const transformStream = new Transform({
-                    transform(chunk, encoding, callback) {
-                        res.write(chunk, encoding);
-                        console.log('Chunk', chunk.length);
-                        callback();
-                    },
-                });
-
-                transformStream.on('finish', () => {
-                    res.end(rest);
-                });
-
-                pipe(transformStream);
             },
             onError(error) {
                 didError = true;
@@ -133,6 +113,28 @@ app.use('*', async (req, res) => {
             onAllReady() {
                 console.log('onAllReady');
             },
+        });
+
+        res.status(didError ? 500 : 200);
+        res.set('Content-Type', 'text/html');
+        res.append('link', collector.getLinkHeaders());
+
+        const modules = collector.getSortedModules();
+
+        console.log('Modules used', modules);
+
+        const tags = collector.getTags();
+
+        res.write(
+            head
+                .replaceAll('%NONCE%', nonce)
+                .replace('</head>', `${tags}\n</head>`)
+        );
+
+        pipe(transformStream);
+
+        transformStream.on('finish', () => {
+            res.end(body + rest);
         });
     } catch (e) {
         vite?.ssrFixStacktrace(e);
