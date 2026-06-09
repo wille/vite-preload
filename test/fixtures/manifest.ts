@@ -1,0 +1,40 @@
+export const testManifest = {
+    'index.html': {
+        src: 'index.html',
+        name: 'index',
+        file: 'assets/index-abc123.js',
+        isEntry: true,
+        imports: ['src/App.tsx'],
+        css: ['assets/index-def456.css'],
+    },
+    'src/App.tsx': {
+        src: 'src/App.tsx',
+        name: 'App',
+        file: 'assets/App-ghi789.js',
+        imports: [],
+        css: [],
+    },
+    'src/Card.tsx': {
+        src: 'src/Card.tsx',
+        name: 'Card',
+        file: 'assets/Card-jkl012.js',
+        isDynamicEntry: true,
+        imports: ['_vendor-shared.js'],
+        css: ['assets/Card-mno345.css'],
+    },
+    '_vendor-shared.js': {
+        src: '_vendor-shared.js',
+        name: 'vendor',
+        file: 'assets/vendor-shared.js',
+        imports: [],
+    },
+    'src/WithAssets.tsx': {
+        src: 'src/WithAssets.tsx',
+        name: 'WithAssets',
+        file: 'assets/WithAssets-pqr678.js',
+        isDynamicEntry: true,
+        imports: [],
+        css: [],
+        assets: ['assets/logo-abc.png', 'assets/font-def.woff2'],
+    },
+};
