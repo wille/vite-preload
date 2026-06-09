@@ -250,8 +250,7 @@ function collectModules(
         return preloads;
     }
 
-    const chunks = new Map<string, ManifestChunk>();
-    collectChunksRecursively(manifest, moduleId, chunks);
+    const chunks = collectChunks(manifest, moduleId);
 
     for (const chunk of chunks.values()) {
         if (preloads.has(chunk.file)) {
@@ -323,6 +322,44 @@ function collectModules(
     }
 
     return preloads;
+}
+
+/**
+ * Per-manifest cache of each module's fully-resolved chunk closure.
+ *
+ * `collectChunksRecursively` is a pure function of `(manifest, moduleId)` — the manifest is
+ * immutable at runtime — yet `collectModules` re-runs it for every rendered module on every
+ * request. For SSR apps that render many modules with deep, heavily-shared closures this is the
+ * single largest source of work and allocation in this module: it re-walks the import graph and
+ * re-clones every `{ ...chunk }` on each render. Memoizing makes each module's walk happen once
+ * per process. The cache is keyed on the manifest object (WeakMap) so a replaced manifest
+ * (production rebuild / dev HMR) transparently gets a fresh cache and the old one is GC'd.
+ *
+ * The returned map is shared — callers (only `collectModules`) read it and must not mutate it.
+ */
+const closureCache = new WeakMap<
+    Manifest,
+    Map<string, Map<string, ManifestChunk>>
+>();
+
+function collectChunks(
+    manifest: Manifest,
+    moduleId: string
+): Map<string, ManifestChunk> {
+    let perManifest = closureCache.get(manifest);
+    if (!perManifest) {
+        perManifest = new Map();
+        closureCache.set(manifest, perManifest);
+    }
+
+    let chunks = perManifest.get(moduleId);
+    if (!chunks) {
+        chunks = new Map<string, ManifestChunk>();
+        collectChunksRecursively(manifest, moduleId, chunks);
+        perManifest.set(moduleId, chunks);
+    }
+
+    return chunks;
 }
 
 function collectChunksRecursively(
