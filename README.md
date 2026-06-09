@@ -1,4 +1,5 @@
 [![NPM package](https://img.shields.io/npm/v/vite-preload.svg?style=flat-square)](https://www.npmjs.com/package/vite-preload)
+[![npm downloads](https://badgen.net/npm/dt/vite-preload)](https://www.npmjs.com/package/vite-preload)
 
 # vite-preload
 
