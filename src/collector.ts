@@ -382,6 +382,12 @@ function buildChunksForModule(
                         mimeType = `font/${ext}`;
                         if (!preloadFonts) skip = true;
                         break;
+                    default:
+                        // Unknown asset type: a <link rel="preload"> without a valid `as` is
+                        // ignored by browsers (and Chrome logs a console warning), so emitting
+                        // one is just wasted bytes. Skip it.
+                        skip = true;
+                        break;
                 }
                 if (skip) continue;
 
