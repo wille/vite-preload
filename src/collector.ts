@@ -250,17 +250,87 @@ function collectModules(
         return preloads;
     }
 
-    const chunks = collectChunks(manifest, moduleId);
+    const built = getBuiltChunks(
+        manifest,
+        moduleId,
+        entry,
+        preloadFonts,
+        preloadAssets,
+        nonce,
+        asyncScript
+    );
 
-    for (const chunk of chunks.values()) {
-        if (preloads.has(chunk.file)) {
+    for (const c of built) {
+        // Skip the whole chunk if its script file is already collected — mirrors the original
+        // `if (preloads.has(chunk.file)) continue;`, which dropped that chunk's css + assets too.
+        if (preloads.has(c.file)) {
             continue;
         }
 
+        preloads.set(c.file, c.script);
+
+        for (const [cssFile, cssPreload] of c.css) {
+            if (preloads.has(cssFile)) continue;
+            preloads.set(cssFile, cssPreload);
+        }
+
+        // Assets were set unconditionally in the original (last-write-wins, no has() guard).
+        for (const [assetFile, assetPreload] of c.assets) {
+            preloads.set(assetFile, assetPreload);
+        }
+    }
+
+    return preloads;
+}
+
+/**
+ * A chunk's preload descriptors, pre-built: the `<script>` / `<link modulepreload>` descriptor
+ * plus the ordered css and asset `[href, Preload]` entries — exactly what `collectModules`
+ * would otherwise construct for one chunk on every render.
+ */
+interface BuiltChunk {
+    file: string;
+    script: Preload;
+    css: Array<[string, Preload]>;
+    assets: Array<[string, Preload]>;
+}
+
+/**
+ * Per-manifest cache of pre-built per-module descriptors, keyed by
+ * `${entry}\0${flags}\0${moduleId}`.
+ *
+ * Only used when `nonce` is empty. The `Preload` descriptor objects (and their `comment`
+ * template strings) are otherwise a pure function of
+ * `(manifest, moduleId, entry, preloadFonts, preloadAssets, asyncScript)` — all stable at
+ * runtime — so the closure-memo (`collectChunks`) left descriptor construction as the largest
+ * remaining per-render allocation in this module. Building each module's descriptors once per
+ * process removes it. A non-empty per-request CSP `nonce` bypasses the cache and builds fresh,
+ * so cached objects never carry the wrong nonce and the cache cannot grow per request.
+ * WeakMap-keyed on the manifest object so a replaced manifest (rebuild / dev HMR) drops the
+ * stale cache.
+ *
+ * The cached `Preload` objects are SHARED across renders — callers must treat them as
+ * immutable (vite-preload only reads them in getChunks/getTags/getLinkHeader/sortPreloads).
+ */
+const descriptorCache = new WeakMap<Manifest, Map<string, BuiltChunk[]>>();
+
+function buildChunksForModule(
+    manifest: Manifest,
+    moduleId: string,
+    entry: string,
+    preloadFonts: boolean,
+    preloadAssets: boolean,
+    nonce: string,
+    asyncScript: boolean
+): BuiltChunk[] {
+    const chunks = collectChunks(manifest, moduleId);
+    const built: BuiltChunk[] = [];
+
+    for (const chunk of chunks.values()) {
         const isPolyfill = chunk.src === 'vite/legacy-polyfills';
         const isPrimaryModule = chunk.src === entry;
 
-        preloads.set(chunk.file, {
+        const script: Preload = {
             // Only the entrypoint module is used as <script module>, everything else is <link rel=modulepreload>
             rel: isPrimaryModule || isPolyfill ? 'module' : 'modulepreload',
             href: chunk.file,
@@ -270,58 +340,117 @@ function collectModules(
 
             // The polyfill chunk should not be async and it should run before the entry chunk
             asyncScript: asyncScript && !isPolyfill,
-        });
+        };
 
+        const css: Array<[string, Preload]> = [];
         for (const cssFile of chunk.css || []) {
-            if (preloads.has(cssFile)) continue;
-            preloads.set(cssFile, {
-                rel: 'stylesheet',
-                href: cssFile,
-                comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
-                isEntry: chunk.isEntry,
-                nonce,
-            });
+            css.push([
+                cssFile,
+                {
+                    rel: 'stylesheet',
+                    href: cssFile,
+                    comment: `chunk: ${chunk.name}, isEntry: ${chunk.isEntry}`,
+                    isEntry: chunk.isEntry,
+                    nonce,
+                },
+            ]);
         }
 
-        if (!preloadFonts && !preloadAssets) {
-            continue;
-        }
+        const assets: Array<[string, Preload]> = [];
+        if (preloadFonts || preloadAssets) {
+            // Assets such as svg, png imports
+            for (const asset of chunk.assets || []) {
+                const ext = path.extname(asset).substring(1);
+                let as;
+                let mimeType;
+                let skip = false;
 
-        // Assets such as svg, png imports
-        for (const asset of chunk.assets || []) {
-            const ext = path.extname(asset).substring(1);
-            let as;
-            let mimeType;
+                switch (ext) {
+                    case 'png':
+                    case 'jpg':
+                    case 'webp':
+                    case 'svg':
+                        as = 'image';
+                        mimeType =
+                            ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
+                        if (!preloadAssets) skip = true;
+                        break;
+                    case 'woff2':
+                    case 'woff':
+                    case 'ttf':
+                        as = 'font';
+                        mimeType = `font/${ext}`;
+                        if (!preloadFonts) skip = true;
+                        break;
+                }
+                if (skip) continue;
 
-            switch (ext) {
-                case 'png':
-                case 'jpg':
-                case 'webp':
-                case 'svg':
-                    as = 'image';
-                    mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
-                    if (preloadAssets) break;
-                    else continue;
-                case 'woff2':
-                case 'woff':
-                case 'ttf':
-                    as = 'font';
-                    mimeType = `font/${ext}`;
-                    if (preloadFonts) break;
-                    else continue;
+                assets.push([
+                    asset,
+                    {
+                        rel: 'preload',
+                        href: asset,
+                        as,
+                        type: mimeType,
+                        comment: `Asset from chunk ${chunk.name}: ${chunk.file}`,
+                    },
+                ]);
             }
-
-            preloads.set(asset, {
-                rel: 'preload',
-                href: asset,
-                as,
-                type: mimeType,
-                comment: `Asset from chunk ${chunk.name}: ${chunk.file}`,
-            });
         }
+
+        built.push({ file: chunk.file, script, css, assets });
     }
 
-    return preloads;
+    return built;
+}
+
+/**
+ * Returns the pre-built per-module chunk descriptors, memoized per process when `nonce` is
+ * empty (see {@link descriptorCache}); built fresh otherwise.
+ */
+function getBuiltChunks(
+    manifest: Manifest,
+    moduleId: string,
+    entry: string,
+    preloadFonts: boolean,
+    preloadAssets: boolean,
+    nonce: string,
+    asyncScript: boolean
+): BuiltChunk[] {
+    // A per-request nonce makes the descriptors request-specific: build fresh, never cache.
+    if (nonce) {
+        return buildChunksForModule(
+            manifest,
+            moduleId,
+            entry,
+            preloadFonts,
+            preloadAssets,
+            nonce,
+            asyncScript
+        );
+    }
+
+    let perManifest = descriptorCache.get(manifest);
+    if (!perManifest) {
+        perManifest = new Map();
+        descriptorCache.set(manifest, perManifest);
+    }
+
+    const key = `${entry}\0${preloadFonts ? 1 : 0}${preloadAssets ? 1 : 0}${asyncScript ? 1 : 0}\0${moduleId}`;
+    let built = perManifest.get(key);
+    if (!built) {
+        built = buildChunksForModule(
+            manifest,
+            moduleId,
+            entry,
+            preloadFonts,
+            preloadAssets,
+            nonce,
+            asyncScript
+        );
+        perManifest.set(key, built);
+    }
+    return built;
 }
 
 /**
