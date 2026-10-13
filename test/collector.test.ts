@@ -48,6 +48,37 @@ describe('ChunkCollector', () => {
         expect(cardJs).toHaveLength(1);
     });
 
+    it('orders stylesheets of imported chunks before the importing chunk', () => {
+        const collector = new ChunkCollector(
+            testManifest as never,
+            'index.html'
+        );
+
+        collector.__context_collectModuleId('src/BuyCard.tsx');
+
+        const hrefs = collector.getChunks().map((chunk) => chunk.href);
+
+        expect(hrefs.indexOf('assets/Panel-bcd890.css')).toBeLessThan(
+            hrefs.indexOf('assets/BuyCard-vwx234.css')
+        );
+    });
+
+    it('collects each chunk once when chunks import each other', () => {
+        const collector = new ChunkCollector(
+            testManifest as never,
+            'index.html'
+        );
+
+        collector.__context_collectModuleId('src/Cycle.tsx');
+
+        const hrefs = collector.getChunks().map((chunk) => chunk.href);
+
+        expect(hrefs.filter((href) => href.includes('cycle-'))).toEqual([
+            'assets/cycle-b.js',
+            'assets/cycle-a.js',
+        ]);
+    });
+
     it('excludes entry chunks from getTags by default', () => {
         const collector = new ChunkCollector(
             testManifest as never,
