@@ -501,7 +501,8 @@ function collectChunksRecursively(
     manifest: Manifest,
     moduleId: string,
     chunks: Map<string, ManifestChunk>,
-    isEntry?: boolean
+    isEntry?: boolean,
+    visited = new Set<string>()
 ) {
     const chunk = manifest[moduleId];
 
@@ -509,8 +510,21 @@ function collectChunksRecursively(
         throw new Error(`Missing chunk '${moduleId}'`);
     }
 
-    if (chunks.has(moduleId)) {
+    if (visited.has(moduleId)) {
         return;
+    }
+    visited.add(moduleId);
+
+    // Imports come first, as in Vite's own stylesheet order: a chunk's CSS has to follow the CSS
+    // it overrides, because equal-specificity rules are decided by document order.
+    for (const importName of chunk.imports || []) {
+        collectChunksRecursively(
+            manifest,
+            importName,
+            chunks,
+            isEntry || chunk.isEntry,
+            visited
+        );
     }
 
     chunks.set(moduleId, {
@@ -521,13 +535,4 @@ function collectChunksRecursively(
         // marked with isEntry: true in the manifest
         isEntry: isEntry || chunk.isEntry,
     });
-
-    for (const importName of chunk.imports || []) {
-        collectChunksRecursively(
-            manifest,
-            importName,
-            chunks,
-            isEntry || chunk.isEntry
-        );
-    }
 }

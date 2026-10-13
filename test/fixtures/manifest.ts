@@ -28,6 +28,37 @@ export const testManifest = {
         file: 'assets/vendor-shared.js',
         imports: [],
     },
+    'src/BuyCard.tsx': {
+        src: 'src/BuyCard.tsx',
+        name: 'BuyCard',
+        file: 'assets/BuyCard-stu901.js',
+        isDynamicEntry: true,
+        imports: ['_Panel.js'],
+        css: ['assets/BuyCard-vwx234.css'],
+    },
+    '_Panel.js': {
+        file: 'assets/Panel-yza567.js',
+        name: 'Panel',
+        imports: [],
+        css: ['assets/Panel-bcd890.css'],
+    },
+    'src/Cycle.tsx': {
+        src: 'src/Cycle.tsx',
+        name: 'Cycle',
+        file: 'assets/Cycle-efg123.js',
+        isDynamicEntry: true,
+        imports: ['_cycle-a.js'],
+    },
+    '_cycle-a.js': {
+        file: 'assets/cycle-a.js',
+        name: 'cycle-a',
+        imports: ['_cycle-b.js'],
+    },
+    '_cycle-b.js': {
+        file: 'assets/cycle-b.js',
+        name: 'cycle-b',
+        imports: ['_cycle-a.js'],
+    },
     'src/WithAssets.tsx': {
         src: 'src/WithAssets.tsx',
         name: 'WithAssets',
