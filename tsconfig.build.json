@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Emit declarations next to the JS output, dist/*.d.ts instead of dist/src/*.d.ts
+    "rootDir": "./src"
+  },
+  "include": ["src"]
+}
