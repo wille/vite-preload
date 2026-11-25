@@ -4,18 +4,37 @@
   "description": "Speed up your Vite application by preloading server rendered lazy modules and stylesheets as early as possible",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./__internal": {
-      "import": "./dist/__internal.js",
-      "require": "./dist/__internal.cjs"
+      "import": {
+        "types": "./dist/__internal.d.ts",
+        "default": "./dist/__internal.js"
+      },
+      "require": {
+        "types": "./dist/__internal.d.cts",
+        "default": "./dist/__internal.cjs"
+      }
     },
     "./plugin": {
-      "import": "./dist/plugin.js",
-      "require": "./dist/plugin.cjs"
+      "import": {
+        "types": "./dist/plugin.d.ts",
+        "default": "./dist/plugin.js"
+      },
+      "require": {
+        "types": "./dist/plugin.d.cts",
+        "default": "./dist/plugin.cjs"
+      }
     }
   },
   "type": "module",

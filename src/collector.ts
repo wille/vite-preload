@@ -7,7 +7,7 @@ import {
     createSingleLinkHeader,
     Preload,
     sortPreloads,
-} from './utils';
+} from './utils.js';
 
 interface ManifestChunk {
     src: string;

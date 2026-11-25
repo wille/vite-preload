@@ -1,6 +1,6 @@
 import React from 'react';
-import { Context } from './__internal';
-import { ChunkCollector } from './collector';
+import { Context } from './__internal.js';
+import { ChunkCollector } from './collector.js';
 
 /**
  * React context to collect used modules
